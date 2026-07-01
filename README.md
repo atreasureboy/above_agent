@@ -1,163 +1,633 @@
-# DriverScope
+<div align="center">
 
-> **Predictive Windows Driver Vulnerability Scanner v0.1.1**
-> 517 tests · 11-phase analysis pipeline · Zero false-negative BYOVD detection
+# DEVOPS_driver
 
-## Value Stream
+### 🛡️ Windows 驱动 BYOVD 漏洞自动化挖掘平台
+
+**DriverScope 静态分析引擎 + OVOIDA AI 逆向 Agent + 动态验证框架**
+
+[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
+[![Ghidra](https://img.shields.io/badge/Ghidra-11.3%20|%2012.1-green.svg)](https://ghidra-sre.org/)
+[![Analyzers](https://img.shields.io/badge/Analyzers-37%20Plugins-orange.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-2100+-brightgreen.svg)]()
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20x64%20|%20ARM64-lightgrey.svg)]()
+
+> 🚀 一键启动逆向分析: `python -m src reverse target.exe --ov-key sk-xxx`
+>
+> 🔍 一键启动 BYOVD 扫描: `python -m src pipeline samples/ --threshold 5.0`
+
+</div>
+
+---
+
+## 📋 目录
+
+- [项目简介](#-项目简介)
+- [完整架构全景图](#-完整架构全景图)
+- [核心模块详解](#-核心模块详解)
+- [快速开始](#-快速开始)
+- [使用模式](#-使用模式)
+- [项目结构](#-项目结构)
+- [设计决策](#-设计决策)
+- [技术栈](#-技术栈)
+- [测试](#-测试)
+- [安全声明](#-安全声明)
+
+---
+
+## 🔍 项目简介
+
+DEVOPS_driver 是一个面向 **Windows 内核驱动 BYOVD（Bring Your Own Vulnerable Driver）漏洞挖掘** 的全链路自动化平台，同时支持**通用 PE 文件 AI 逆向分析**。
+
+### 核心能力
+
+- **🔬 37 个分析插件** — 覆盖 IOCTL 暴露面、危险内核原语、DKOM、Hook、DSE/PG bypass、回调注册、MiniFilter、ALPC/NamedPipe、反混淆、VMX/EPT 等全部已知 BYOVD 攻击面
+- **🧠 AI 深度逆向（OVOIDA Agent）** — 集成 DeepSeek/GPT 等大模型，对高风险驱动进行综合研判 + PoC 自动生成
+- **⚡ 双后端反汇编** — Capstone（快速模式匹配）+ Ghidra（全量反编译 + 污点追踪）
+- **🔗 全链路污点分析** — 用户输入 → IOCTL handler → 危险 API 调用，完整 taint source → sink 验证
+- **🎯 自动 PoC 生成** — 基于攻击链自动生成 Python ctypes / C 语言的漏洞利用 PoC
+- **🖥️ 动态验证框架** — QEMU 沙箱 + WinDbg 内核调试 + KDNET 远程调试
+- **📊 多格式报告** — JSON / HTML / Markdown / SARIF / DOT 攻击图
+- **🤖 对话式 Agent CLI** — 自然语言交互："扫描 samples/"、"逆向 ntdll.dll"
+- **🌐 通用逆向模式** — `reverse` 命令跳过 BYOVD 评分，直接对任意 PE 做 AI 深度分析
+
+### 与传统方案的本质区别
+
+| 维度 | 传统驱动分析 | DEVOPS_driver |
+|------|-------------|---------------|
+| 分析深度 | 人工 IDA 逆向，数天/驱动 | 37 个插件自动并行，分钟级 |
+| 漏洞发现 | 依赖分析师经验 | 规则引擎 + 污点追踪 + AI 研判三重保障 |
+| 利用验证 | 手动编写 PoC | 自动生成 ctypes PoC，一键复现 |
+| AI 集成 | 无 | OVOIDA Agent 综合研判 + PoC 生成 |
+| 覆盖面 | 单驱动分析 | 多驱动关联 + 跨驱动攻击链检测 |
+
+---
+
+## 🏗️ 完整架构全景图
 
 ```
-[未知 .sys 集合] ──► [DriverScope] ──► [按风险排序的漏洞清单]
-                         │
-                  区别于:
-                  • LOLDrivers = 哈希查表（已知漏洞）
-                  • CodeQL   = 源码分析（需编译链）
-                  • IDA 脚本 = 单次手工
-                  • DriverScope = 二进制 + 预测性 + 批量 + 领域专用
+╔══════════════════════════════════════════════════════════════════════════════════════╗
+║                       DEVOPS_driver — 完整架构全景图                                   ║
+╠══════════════════════════════════════════════════════════════════════════════════════╣
+║                                                                                      ║
+║   输入: .sys / .exe / .dll / .ocx (单文件或目录)                                       ║
+║        │                                                                             ║
+║        ▼                                                                             ║
+║  ┌─────────────────────────────────────────────────────────────────────────────┐    ║
+║  │                           CLI / GUI 入口层                                   │    ║
+║  │  python -m src  pipeline | scan | deep | reverse | agent | validate         │    ║
+║  │  launcher.py (Tkinter GUI)  │  agent_cli.py (对话式 REPL)                    │    ║
+║  └────────────────────────────────┬────────────────────────────────────────────┘    ║
+║                                   │                                                ║
+║              ┌────────────────────┼────────────────────┐                            ║
+║              ▼                    ▼                    ▼                             ║
+║  ┌─────────────────┐ ┌─────────────────────┐ ┌──────────────────────┐              ║
+║  │  Phase 1:        │ │  Phase 2:           │ │  reverse 模式        │              ║
+║  │  DriverScope     │ │  OVOIDA Agent       │ │  (跳过评分)          │              ║
+║  │  静态批量扫描     │ │  AI 深度逆向        │ │  直接调用 LLM API    │              ║
+║  └────────┬────────┘ └──────────┬──────────┘ └──────────┬───────────┘              ║
+║           │                     │                        │                          ║
+║           ▼                     ▼                        ▼                          ║
+║  ┌─────────────────────────────────────────────────────────────────────────────┐    ║
+║  │                        Layer 1: 样本摄取 (ingestion/)                        │    ║
+║  │  pe_parser.py (内核驱动)  │  usermode_parser.py (用户态 PE)                   │    ║
+║  │  signature.py (签名验证)  │  自动检测: sys/exe/dll/ocx + 架构 + 编译时间      │    ║
+║  └────────────────────────────────┬────────────────────────────────────────────┘    ║
+║                                   │                                                ║
+║                                   ▼                                                ║
+║  ┌─────────────────────────────────────────────────────────────────────────────┐    ║
+║  │                     Layer 2: 反汇编 & IR (disassembly/)                      │    ║
+║  │  ┌──────────────────────┐  ┌──────────────────────┐  ┌─────────────────┐    │    ║
+║  │  │  Capstone Backend    │  │  Ghidra Backend      │  │  API Resolver   │    │    ║
+║  │  │  快速模式匹配        │  │  全量反编译 + CFG     │  │  IAT/EAT 解析   │    │    ║
+║  │  │  指令级语义分析       │  │  伪代码 + 类型推断    │  │  vtable 解析    │    │    ║
+║  │  └──────────────────────┘  └──────────────────────┘  └─────────────────┘    │    ║
+║  │  minifilter_detector.py  │  vtable_resolver.py                               │    ║
+║  └────────────────────────────────┬────────────────────────────────────────────┘    ║
+║                                   │                                                ║
+║                                   ▼                                                ║
+║  ┌─────────────────────────────────────────────────────────────────────────────┐    ║
+║  │                    Layer 3: 分析引擎 (analysis/) — 37 个插件                  │    ║
+║  │                                                                              │    ║
+║  │  ┌─── Core Analyzers (28 个) ──────────────────────────────────────────┐    │    ║
+║  │  │  ioctl_analyzer         structure_analyzer       primitive_analyzer  │    │    ║
+║  │  │  hook_analyzer          dkom_detector            integrity_detector  │    │    ║
+║  │  │  semantic_analyzer      anti_obfuscation         vmp_detector        │    │    ║
+║  │  │  vmx_detector           apc_detector             alpc_detector       │    │    ║
+║  │  │  namedpipe_detector     object_callback_detector registry_callback   │    │    ║
+║  │  │  string_analyzer        pseudocode_analyzer      coverage            │    │    ║
+║  │  │  correlator             multi_driver_correlator  protocol_analyzer   │    │    ║
+║  │  │  api_hash_bruteforce    string_decryptor         usermode_analyzer   │    │    ║
+║  │  │  arm64                  dependency_graph         fp_baseline         │    │    ║
+║  │  │  anti_debug_detector    constraint_solver        deobfuscation       │    │    ║
+║  │  │  import_graph           cfg_utils                                    │    │    ║
+║  │  └──────────────────────────────────────────────────────────────────────┘    │    ║
+║  │                                                                              │    ║
+║  │  ┌─── Deep Analyzers (16 个) ──────────────────────────────────────────┐    │    ║
+║  │  │  call_chain_analyzer    callback_resolver        cff_analyzer        │    │    ║
+║  │  │  comm_protocol_analyzer comparison_tracer        data_content        │    │    ║
+║  │  │  data_structure         dkom_detector            dse_pg_detector     │    │    ║
+║  │  │  filter_driver          memory_map_analyzer      minifilter_rules    │    │    ║
+║  │  │  stack_string           struct_inference         wide_string         │    │    ║
+║  │  │  xref_tracker           ovoida_engine                                │    │    ║
+║  │  └──────────────────────────────────────────────────────────────────────┘    │    ║
+║  │                                                                              │    ║
+║  │  ┌─── Dataflow ──────────────┐  ┌─── Dynamic ──────────────────────┐        │    ║
+║  │  │  input_tracker (taint)    │  │  sandbox (QEMU)  │  debugger      │        │    ║
+║  │  │  struct_tracker           │  │  monitor         │  validator     │        │    ║
+║  │  └───────────────────────────┘  │  service         │  sandbox_setup │        │    ║
+║  │                                  └──────────────────────────────────┘        │    ║
+║  │                                                                              │    ║
+║  │  ┌─── Filter Funnel ────────────────────────────────────────────────┐       │    ║
+║  │  │  L0: 枚举 → L1: 签名白名单 → L2: Import 评分 → L3: 轻量反汇编    │       │    ║
+║  │  │  → L4: LolDrivers 匹配 → L5: 白名单过滤 → 最终候选               │       │    ║
+║  │  └──────────────────────────────────────────────────────────────────┘       │    ║
+║  └────────────────────────────────┬────────────────────────────────────────────┘    ║
+║                                   │                                                ║
+║                                   ▼                                                ║
+║  ┌─────────────────────────────────────────────────────────────────────────────┐    ║
+║  │                     Layer 4: 评分 & 报告 (scoring/ + report/)                │    ║
+║  │  scoring/engine.py (BYOVD 风险评分)  │  exploitability_scorer.py             │    ║
+║  │  calibration.py (评分校准)           │                                      │    ║
+║  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────┐     │    ║
+║  │  │  JSON    │ │  HTML    │ │ Markdown │ │  SARIF   │ │ Attack Graph │     │    ║
+║  │  │  报告    │ │  报告    │ │  报告    │ │ CodeQL   │ │  DOT 攻击图  │     │    ║
+║  │  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────────┘     │    ║
+║  │  poc_generator.py (PoC 自动生成: Python ctypes / C)                         │    ║
+║  └────────────────────────────────┬────────────────────────────────────────────┘    ║
+║                                   │                                                ║
+║                                   ▼                                                ║
+║  ┌─────────────────────────────────────────────────────────────────────────────┐    ║
+║  │                        基础设施层                                             │    ║
+║  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────┐     │    ║
+║  │  │ models   │ │ config   │ │ intel/   │ │ cache    │ │ utils/       │     │    ║
+║  │  │ 数据模型  │ │ 配置管理  │ │ LolDrivers│ │ 分析缓存  │ │ IOCTL 工具   │     │    ║
+║  │  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────────┘     │    ║
+║  │  ┌──────────────────────────────────────────────────────────────────┐      │    ║
+║  │  │  components/ovoida (Node.js TypeScript Agent) — AI 深度逆向引擎  │      │    ║
+║  │  │  components/BYOVD_detect (Python 分析引擎备份)                     │      │    ║
+║  │  └──────────────────────────────────────────────────────────────────┘      │    ║
+║  └─────────────────────────────────────────────────────────────────────────────┘    ║
+║                                                                                      ║
+║   输出: workspace/reports/  (JSON + HTML + Markdown + SARIF + DOT)                    ║
+║          workspace/sessions/ (OVOIDA 会话: context.json + findings + PoC)             ║
+╚══════════════════════════════════════════════════════════════════════════════════════╝
 ```
 
-## What Is DriverScope?
+---
 
-DriverScope ingests unknown Windows kernel driver (`.sys`) files, performs
-multi-phase static reverse engineering analysis, identifies exposed kernel
-primitives and exploitable attack chains, and produces a **risk-scored
-vulnerability report**.
+## 🧩 核心模块详解
 
-Unlike LOLDrivers (hash lookup of *known* vulnerabilities), DriverScope
-**predictively** scans binary code for *dangerous patterns* — even in
-previously unseen drivers.
-
-## Architecture
-
-### 11-Phase Analysis Pipeline
+### Phase 1: DriverScope 静态扫描引擎
 
 ```
-Phase 0 ──► Phase 1 ──► Phase 2 ──► Phase 3 ──► Phase 4
- Ingestion   PE Parse    Strings    Light Disasm   Filter Funnel
-
-Phase 5 ──► Phase 6 ──► Phase 7 ──► Phase 8 ──► Phase 9 ──► Phase 10 ──► Phase 11
- Ghidra      Capstone    Data Flow   Semantic       Structure     Coverage      Anti-Obfuscation
- Backend     Backend     + Taint     Analysis       + Primitives  Fixes         + Anti-Debug
-                                      ├─ Input Validation                       ├─ CFG Flattening
-                                      ├─ Constraint Solver (Z3)                 ├─ Dead Code/Junk
-                                      ├─ Indirect Call Resolution               ├─ PE Packer Detection
-                                      ├─ Struct Field Taint Tracking            ├─ API Hashing
-                                      └─ OVOIDA Deep Analysis                   └─ Anti-Debug (RDTSC/CPUID/INT3)
+┌──────────────────────────────────────────────────────────────────────────┐
+│                        DriverScope 静态扫描引擎                           │
+│                                                                          │
+│  ┌────────────┐    ┌────────────┐    ┌────────────┐    ┌────────────┐  │
+│  │  Ingestion │ -> │ Disassembly│ -> │  37 Plugins│ -> │  Scoring   │  │
+│  │  PE 解析    │    │ Capstone/  │    │  并行执行   │    │  风险评分   │  │
+│  │  签名验证   │    │ Ghidra     │    │  37 个分析器 │    │  0-10 分   │  │
+│  └────────────┘    └────────────┘    └────────────┘    └────────────┘  │
+│                                                                          │
+│  IOCTL 暴露面  │  内核原语检测  │  污点追踪  │  攻击链构建  │  PoC 生成  │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Layer Details
+**37 个分析器分类：**
 
-| Phase | Component | What It Does |
-|-------|-----------|-------------|
-| 0-4 | Ingestion + Funnel | PE parsing, signature check, threat intel, progressive filtering |
-| 5 | Ghidra Backend | Full decompilation, parameter recovery, CFG from pseudocode |
-| 6 | Capstone Backend | Quick disassembly, pattern matching, API import resolution |
-| 7 | Data Flow | User input taint tracking through IOCTL buffers to dangerous APIs |
-| 8 | Semantic | Privileged instruction detection (wrmsr, mov drX, lgdt, etc.) |
-| 9 | Structure + Primitive | IOCTL dispatchers, dangerous APIs, attack chain correlation |
-| 10 | Coverage Fixes | Z3 branch constraints, API unification, Unicode extraction, WDF fixes |
-| 11 | Anti-Obfuscation | Anti-debug (RDTSC/CPUID/INT3), CFG flattening, junk code, PE packers, API hashing |
+| 类别 | 分析器 | 检测能力 |
+|------|--------|----------|
+| **IOCTL 入口面** | `ioctl_analyzer`, `structure_analyzer`, `protocol_analyzer` | IOCTL code 提取、handler 映射、transfer method 识别 |
+| **危险内核原语** | `primitive_analyzer`, `semantic_analyzer`, `correlator` | MmMapIoSpace, KeWriteMsr, MmCopyVirtualMemory 等 50+ 危险 API |
+| **内核对象操作** | `dkom_detector`, `hook_analyzer`, `integrity_detector` | DKOM、inline/SSDT/IDT hook、代码完整性自检 |
+| **进程/线程注入** | `apc_detector`, `alpc_detector`, `namedpipe_detector` | APC 注入、ALPC 通信、命名管道 IPC |
+| **回调 & 注册** | `object_callback_detector`, `registry_callback_detector`, `callback_resolver` | ObRegisterCallbacks, CmRegisterCallback |
+| **文件系统** | `filter_driver_analyzer`, `minifilter_rule_extractor` | MiniFilter FLT_REGISTRATION 解析 |
+| **反分析 & 保护** | `anti_obfuscation`, `anti_debug_detector`, `vmp_detector`, `string_decryptor` | 控制流平坦化、VMProtect、字符串加密 |
+| **虚拟化 & 底层** | `vmx_detector`, `ept_vm_detector`, `arm64` | VT-x/EPT、ARM64 特殊指令 |
+| **深度分析** | `call_chain_analyzer`, `xref_tracker`, `struct_inference` | IOCTL → API 调用链、交叉引用、结构推断 |
+| **用户态** | `usermode_analyzer` | 危险导入检测（CreateRemoteThread, WriteProcessMemory 等） |
+| **关联分析** | `multi_driver_correlator`, `dependency_graph`, `import_graph` | 跨驱动攻击链、依赖图、导入图 |
 
-### Analysis Capabilities
+### Phase 2: OVOIDA AI 深度逆向 Agent
 
-- **IOCTL Surface Mapping** — Extract all IOCTL codes, handlers, and transfer methods (METHOD_BUFFERED/NEITHER)
-- **Dangerous Primitive Detection** — 50+ kernel APIs across 12 categories (memory mapping, MSR access, DMA, callback registration, etc.)
-- **Taint Flow Analysis** — Track user-controlled input from SystemBuffer through to dangerous API sinks
-- **Z3 Constraint Solving** — Path feasibility via BitVec constraints for cmp/test/jcc instructions
-- **Privileged Instruction Detection** — `wrmsr`, `mov dr0-dr7`, `lgdt`, `lidt`, `ltr`, `lmsw`, `clts`, `invlpg`
-- **Anti-Debug Detection** — `rdtsc` timing check, `cpuid` hypervisor detection, `int 3`/`icebp` traps, `sidt`/`sgdt`/`str` Red Pill, SEH setup
-- **Anti-Obfuscation Analysis** — Control flow flattening, dead code/junk injection, PE packer signatures (UPX/VMProtect/Themida), API hashing
-- **OVOIDA Deep Analysis** — Ghidra-backed exploit chain extraction with pseudocode generation
-- **Attack Chain Correlation** — Link primitives + validation gaps into complete BYOVD chains
-- **WDF Support** — WDF driver dispatch identification and analysis
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                     OVOIDA AI 深度逆向 Agent                              │
+│                                                                          │
+│  Phase 1 结果                                                            │
+│       │                                                                  │
+│       ▼                                                                  │
+│  ┌────────────┐    ┌────────────┐    ┌────────────┐    ┌────────────┐  │
+│  │  Context   │ -> │  LLM API   │ -> │  综合研判   │ -> │  PoC 生成  │  │
+│  │  构建       │    │ DeepSeek/  │    │  置信度评估  │    │  Python/C  │  │
+│  │  结构化输入  │    │ GPT/Claude │    │  链验证     │    │  ctypes    │  │
+│  └────────────┘    └────────────┘    └────────────┘    └────────────┘  │
+│                                                                          │
+│  输入: findings + functions + IOCTL handlers + taint data                │
+│  输出: findings.json + findings.md + poc.py + triage.txt                 │
+└──────────────────────────────────────────────────────────────────────────┘
+```
 
-## Quick Start
+- 支持 **DeepSeek / OpenAI / Claude** 等任意 OpenAI 兼容 API
+- 自动构建结构化 context.json（完整 findings、函数列表、IOCTL 映射）
+- AI 对每条攻击链给出置信度评估（High / Medium / Low）
+- 自动生成可执行的 ctypes PoC 代码
+
+### reverse 模式: 通用 AI 逆向
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                     reverse 模式 (通用 PE 逆向)                           │
+│                                                                          │
+│  任意 PE 文件                                                            │
+│       │                                                                  │
+│       ▼                                                                  │
+│  ┌────────────┐    ┌────────────┐    ┌────────────────────────────────┐ │
+│  │  PE 解析    │ -> │ 上下文构建  │ -> │  LLM API (直接调用, 无评分)   │ │
+│  │  导入/导出  │    │ imports +  │    │  功能分析 + 技术细节 + 风险    │ │
+│  │  字符串提取  │    │ exports +  │    │  评估 + 综合结论               │ │
+│  └────────────┘    │ strings    │    └────────────────────────────────┘ │
+│                     └────────────┘                                      │
+│                                                                          │
+│  输出: AI 详细分析报告 (中文)                                             │
+│  适用: .exe / .dll / .sys — 不区分驱动还是用户态                          │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+**跳过 BYOVD 评分**，直接把 PE 的 imports/exports/strings 发给 AI 做全面分析。适合逆向分析普通 exe/dll。
+
+### 动态验证框架
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                       动态验证框架 (dynamic/)                             │
+│                                                                          │
+│  ┌────────────┐    ┌────────────┐    ┌────────────┐    ┌────────────┐  │
+│  │   QEMU     │    │   WinDbg   │    │   KDNET    │    │  Sandbox   │  │
+│  │   沙箱      │    │   内核调试  │    │  远程调试   │    │  隔离环境   │  │
+│  └────────────┘    └────────────┘    └────────────┘    └────────────┘  │
+│                                                                          │
+│  monitor.py  │  debugger.py  │  sandbox.py  │  validator.py             │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+### 报告 & PoC 生成
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                       报告 & PoC 生成                                     │
+│                                                                          │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌─────────┐ │
+│  │  JSON    │  │  HTML    │  │ Markdown │  │  SARIF   │  │  DOT    │ │
+│  │  结构化   │  │  可视化   │  │  可读性   │  │  CodeQL  │  │ 攻击图  │ │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘  └─────────┘ │
+│                                                                          │
+│  poc_generator.py: 基于攻击链自动生成 PoC                                 │
+│  ├── Python ctypes PoC (CreateFile + DeviceIoControl)                    │
+│  ├── C PoC (Win32 API 直接调用)                                          │
+│  └── 支持 50+ 危险 API 的专用 payload 模板                               │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🚀 快速开始
+
+### 环境要求
+
+- Python 3.10+
+- Windows 10/11 (x64)
+- Ghidra 11.3+ (可选，用于深度分析)
+
+### 一键安装
+
+```powershell
+# PowerShell (管理员)
+.\setup.ps1
+```
+
+### 手动安装
 
 ```bash
-# Analyze a single driver
-python -m src scan path/to/driver.sys
-
-# Scan local system drivers (C:\Windows\System32\drivers)
-python -m src scan --local
-
-# Batch scan with limit, output as SARIF
-python -m src scan path/to/drivers/ -n 5 -o report.sarif --format sarif
-
-# Batch scan with JSON report
-python -m src scan path/to/drivers/ --output report.json
-
-# List registered analyzers
-python -m src list-analyzers
+pip install pefile capstone
+# 可选: 下载 Ghidra 并放到项目根目录
 ```
 
-### CLI Flags
+### 配置 OVOIDA AI (可选)
 
-| Flag | Description |
-|------|-------------|
-| `--local` | Scan `C:\Windows\System32\drivers` |
-| `-n, --limit N` | Max drivers to analyze (0 = unlimited) |
-| `--min-score N` | Only report findings with risk >= N |
-| `--timeout N` | Timeout per driver in seconds (0 = unlimited) |
-| `-o, --output` | Output report path |
-| `--format json\|sarif\|html\|pdf` | Report format (default: json) |
+```bash
+# 方式 1: 环境变量
+export OPENAI_API_KEY=sk-xxx
+export OPENAI_BASE_URL=https://api.deepseek.com/v1
 
-## Threat Intel
+# 方式 2: 命令行参数
+python -m src pipeline samples/ --ov-url https://api.deepseek.com/v1 --ov-key sk-xxx
+```
 
-DriverScope auto-fetches the [LOLDrivers](https://www.loldrivers.io/)
-vulnerable driver database on first run and caches it locally in
-`~/.driverscope/intel/loldrivers.db` (TTL: 24 hours).
+---
 
-Matching uses 3-level priority:
-1. **SHA256 exact match** → confidence 1.0
-2. **Filename + Company match** → confidence 0.7
-3. **Filename-only match** → confidence 0.5
+## 📖 使用模式
 
-## Output Formats
+### 1. 通用 AI 逆向（推荐入门）
 
-- **JSON** — Default, human-readable with full findings and evidence
-- **SARIF** — OASIS v2.1.0 standard, importable into GitHub Security,
-  Azure DevOps, VS Code, and other DevSecOps tools
-- **HTML** — Self-contained report with attack chain visualization,
-  severity-colored findings, expandable details, print-to-PDF support
+跳过 BYOVD 评分，直接对任意 PE 文件做 AI 深度分析：
 
-## Real-World Validation
+```bash
+# 逆向分析单个 exe
+python -m src reverse target.exe \
+  --ov-url https://api.deepseek.com/v1 \
+  --ov-key sk-xxx \
+  --ov-model deepseek-chat
 
-Tested against **360AntiHacker64.sys** (360 Security anti-cheat driver):
+# 逆向分析 DLL
+python -m src reverse module.dll \
+  --ov-key sk-xxx --output report.json
+```
 
-| Metric | Result |
-|--------|--------|
-| Functions analyzed | 649 |
-| IOCTL codes found | 4 |
-| Dangerous APIs detected | 28 |
-| Total findings | 435 |
-| Critical findings | 11 |
-| Risk score | **10.0/10 (CRITICAL)** |
-| Time | 2.0s (Capstone) |
+### 2. 对话式 Agent CLI
 
-Key findings: 5 functions calling `MmMapLockedPagesSpecifyCache` without
-validation, complete BYOVD attack chains with confirmed taint flow
-(`UserBuffer → MmMapLockedPagesSpecifyCache`), and `ObReferenceObjectByHandle`
-exposure — all matching known public disclosures.
+自然语言交互，Agent 自动调度工具：
 
-## Roadmap
+```bash
+python -m src agent
+```
 
-| Version | Milestone | Status |
-|---------|-----------|--------|
-| **v0.0.1** | Single driver, 5-10 rules, CLI output | Done |
-| **v0.0.2** | Filter chain + threat intel + SARIF + evidence | Done |
-| **v0.0.3** | Data flow + IOCTL precision + input validation | Done |
-| **v0.1.0** | Ghidra + Z3 + OVOIDA + full coverage (482 tests) | **Done** |
-| **v0.3** | Pluggable rules + IDA Pro backend | Planned |
-| **v0.5** | Web Dashboard + sample management | Planned |
-| **v1.0** | Dynamic validation + continuous monitoring | Planned |
+```
+你 > 扫描 samples/
+你 > 逆向 C:\Windows\System32\drivers\null.sys
+你 > 完整流水线 samples/
+你 > 设置 API URL https://api.deepseek.com/v1
+你 > 设置 API Key sk-xxx
+你 > 帮助
+```
 
-**Current focus:** WDM drivers exposing arbitrary memory primitives.
+### 3. BYOVD 驱动漏洞扫描
 
-## Why This Matters
+```bash
+# 快速扫描 (仅 Phase 1)
+python -m src scan samples/ --output report.json
 
-- **For interviews:** Demonstrates deep Windows kernel understanding + engineering rigor
-- **For research:** Novel predictive approach to driver vulnerability assessment
-- **For 0-day hunting:** Focused scanning on high-value primitive exposure patterns
+# 完整流水线 (Phase 1 + 2 + 3)
+python -m src pipeline samples/ \
+  --workspace workspace \
+  --threshold 5.0 \
+  --max-deep 3 \
+  --ov-url https://api.deepseek.com/v1 \
+  --ov-key sk-xxx \
+  --format json html markdown
 
-## License
+# 包含用户态 PE
+python -m src scan samples/ --usermode --output report.json
+```
 
-MIT — Framework is open source. Vulnerability pattern rulesets may be maintained as proprietary assets.
+### 4. Ghidra 深度反编译
+
+```bash
+python -m src deep driver.sys --timeout 300 --output deep_result.json
+```
+
+### 5. 动态验证
+
+```bash
+python -m src validate driver.sys --sandbox --poc poc.py
+python -m src validate driver.sys --debugger --windbg "C:\path\to\windbgx.exe"
+```
+
+### 6. GUI 界面
+
+```bash
+python launcher.py
+```
+
+### 7. 环境检查
+
+```bash
+python -m src check-env    # 检查 QEMU/WinDbg/KDNET 是否就绪
+python -m src list-analyzers  # 列出 37 个分析器
+```
+
+---
+
+## 📁 项目结构
+
+```
+DEVOPS_driver/
+├── src/                              # 核心源码 (120+ 文件)
+│   ├── __main__.py                   # CLI 入口
+│   ├── main.py                       # 命令解析 + 子命令路由
+│   ├── agent_cli.py                  # 对话式 Agent CLI (REPL)
+│   ├── models.py                     # 数据模型 (Sample, Finding, Report, ...)
+│   │
+│   ├── ingestion/                    # Layer 1: 样本摄取
+│   │   ├── pe_parser.py              #   内核驱动 PE 解析 (.sys)
+│   │   ├── usermode_parser.py        #   用户态 PE 解析 (.exe/.dll)
+│   │   └── signature.py              #   Authenticode 签名验证
+│   │
+│   ├── disassembly/                  # Layer 2: 反汇编 & IR
+│   │   ├── backend.py                #   抽象后端接口
+│   │   ├── capstone_backend.py       #   Capstone 快速反汇编
+│   │   ├── ghidra_backend.py         #   Ghidra 全量反编译
+│   │   ├── api_resolver.py           #   IAT/EAT API 解析
+│   │   ├── vtable_resolver.py        #   C++ vtable 解析
+│   │   └── minifilter_detector.py    #   MiniFilter 结构检测
+│   │
+│   ├── analysis/                     # Layer 3: 分析引擎
+│   │   ├── analyzer.py               #   分析器基类
+│   │   ├── cache.py                  #   分析缓存
+│   │   ├── pipeline.py               #   批量分析 pipeline
+│   │   ├── core/                     #   28 个核心分析器
+│   │   │   ├── ioctl_analyzer.py     #     IOCTL 暴露面分析
+│   │   │   ├── primitive_analyzer.py #     危险内核原语检测
+│   │   │   ├── hook_analyzer.py      #     Hook 检测 (inline/SSDT/IDT)
+│   │   │   ├── dkom_detector.py      #     DKOM 检测
+│   │   │   ├── semantic_analyzer.py  #     指令级语义分析
+│   │   │   ├── anti_obfuscation.py   #     反混淆检测
+│   │   │   ├── vmp_detector.py       #     VMProtect 检测
+│   │   │   ├── vmx_detector.py       #     VT-x/EPT 检测
+│   │   │   ├── usermode_analyzer.py  #     用户态危险 API 检测
+│   │   │   └── ...                   #     (共 28 个)
+│   │   ├── deep/                     #   16 个深度分析器
+│   │   │   ├── call_chain_analyzer.py#     IOCTL → API 调用链
+│   │   │   ├── ovoida_engine.py      #     Python OVOIDA 引擎
+│   │   │   ├── dse_pg_detector.py    #     DSE/PG bypass 检测
+│   │   │   └── ...                   #     (共 16 个)
+│   │   ├── dataflow/                 #   数据流分析
+│   │   │   ├── input_tracker.py      #     污点追踪 (taint)
+│   │   │   └── struct_tracker.py     #     结构体追踪
+│   │   ├── dynamic/                  #   动态验证
+│   │   │   ├── sandbox.py            #     QEMU 沙箱
+│   │   │   ├── debugger.py           #     WinDbg 调试器
+│   │   │   ├── monitor.py            #     行为监控
+│   │   │   └── validator.py          #     PoC 验证器
+│   │   └── funnel/                   #   漏斗式过滤
+│   │       └── stages/               #     L0->L1->L2->L3->L4->L5
+│   │
+│   ├── scoring/                      # Layer 4: 评分
+│   │   ├── engine.py                 #   BYOVD 风险评分引擎
+│   │   ├── exploitability_scorer.py  #   可利用性评分
+│   │   └── calibration.py            #   评分校准
+│   │
+│   ├── report/                       # 报告生成
+│   │   ├── html.py                   #   HTML 可视化报告
+│   │   ├── markdown.py               #   Markdown 报告
+│   │   ├── sarif.py                  #   SARIF (CodeQL 格式)
+│   │   ├── poc_generator.py          #   PoC 自动生成
+│   │   ├── attack_graph.py           #   DOT 攻击图
+│   │   └── cfg_visualizer.py         #   CFG 可视化
+│   │
+│   ├── pipeline/                     # 三阶段流水线编排
+│   │   └── __init__.py               #   Phase 1 + 1.5 + 2 + 3
+│   │
+│   ├── gui/                          # GUI 界面
+│   │   ├── app.py                    #   Tkinter 主窗口
+│   │   ├── agent.py                  #   Agent 意图解析引擎
+│   │   ├── controller.py             #   子进程控制器
+│   │   ├── result_widgets.py         #   结果展示组件
+│   │   └── styles.py                 #   样式常量
+│   │
+│   ├── config/                       # 配置管理
+│   │   ├── defaults.py               #   默认配置 + 规则集
+│   │   ├── user.py                   #   用户配置加载
+│   │   └── dynamic.py                #   动态配置
+│   │
+│   ├── intel/                        # 威胁情报
+│   │   ├── loldrivers.py             #   LolDrivers 已知恶意驱动匹配
+│   │   └── base.py                   #   情报接口
+│   │
+│   └── utils/                        # 工具函数
+│       └── ioctl.py                  #   IOCTL code 编解码
+│
+├── components/
+│   ├── ovoida/                       # OVOIDA Node.js Agent (TypeScript)
+│   │   ├── dist/bin/ovogogogo.js     #   编译后的 Agent 入口
+│   │   └── src/                      #   TypeScript 源码
+│   └── BYOVD_detect/                 # Python 分析引擎 (备份)
+│
+├── tests/                            # 测试套件 (2100+ tests)
+│   ├── analysis/                     #   分析器单元测试
+│   ├── disassembly/                  #   反汇编测试
+│   ├── ingestion/                    #   PE 解析测试
+│   ├── scoring/                      #   评分测试
+│   ├── report/                       #   报告生成测试
+│   └── ...
+│
+├── ghidra_11.3.1_PUBLIC/             # Ghidra 反汇编器 (via junction)
+├── ghidra_12.1_PUBLIC/               # Ghidra 最新版 (via junction)
+├── docs/                             # 项目文档
+├── rules/                            # 分析规则集
+├── signatures/                       # 签名规则库
+├── tools/                            # 辅助工具
+├── scripts/                          # 脚本
+├── samples/                          # 测试样本
+├── workspace/                        # 输出目录
+│   ├── reports/                      #   分析报告
+│   └── sessions/                     #   OVOIDA 会话
+│
+├── launcher.py                       # GUI 启动器
+├── setup.ps1                         # 一键安装脚本
+├── 启动.bat                          # Windows 快捷启动
+└── pyproject.toml                    # Python 项目配置
+```
+
+---
+
+## 💡 设计决策
+
+### 为什么分 4 层 Pipeline？
+
+传统工具通常是一步到位（输入 → 输出），DEVOPS_driver 采用 4 层流水线设计：
+
+1. **Ingestion → Disassembly → Analysis → Scoring** — 每层独立可替换
+2. **好处**: 可以单独升级某一层（如换 Ghidra 后端），不影响其他层
+3. **对比**: IDA Pro 是单体架构，难以扩展
+
+### 为什么用 Capstone + Ghidra 双后端？
+
+- **Capstone**: 速度快（毫秒级），适合批量扫描 + 模式匹配
+- **Ghidra**: 全量反编译 + 类型推断，适合单驱动深度分析
+- **策略**: 先用 Capstone 批量筛选 → 高风险的用 Ghidra 深入
+
+### 为什么 OVOIDA 用 Node.js Agent？
+
+- Node.js 的 async/streaming 生态更适合长连接 LLM API 调用
+- TypeScript 的类型安全适合构建复杂 Agent 工具链
+- Python 侧负责确定性分析（IR/CFG/污点），Node.js 侧负责 AI 研判
+
+### 为什么 reverse 模式跳过评分？
+
+- BYOVD 评分专为内核驱动设计（IOCTL 暴露面、内核原语等）
+- 普通 exe/dll 没有 IOCTL handler，评分无意义
+- reverse 模式直接发 AI 做全面分析，更实用
+
+### 为什么用 Filter Funnel？
+
+- 大量驱动中，大部分是安全的（微软签名、已知白名单）
+- 漏斗式过滤（L0→L1→...→L5）快速淘汰安全驱动
+- 只把高风险候选送入耗时的深度分析阶段
+
+---
+
+## 🛠️ 技术栈
+
+| 组件 | 技术 | 用途 |
+|------|------|------|
+| **语言** | Python 3.10+ | 主引擎 |
+| **反汇编** | Capstone | 快速模式匹配 + 指令级分析 |
+| **反编译** | Ghidra 11.3 / 12.1 | 全量反编译 + CFG + 伪代码 |
+| **PE 解析** | pefile | PE 格式解析、IAT/EAT/资源提取 |
+| **AI Agent** | OVOIDA (Node.js/TS) | LLM 驱动的逆向分析 Agent |
+| **LLM API** | DeepSeek / OpenAI / Claude | AI 研判 + PoC 生成 |
+| **GUI** | Tkinter + ttk | 桌面操作界面 |
+| **CLI Agent** | 自研 REPL | 对话式逆向分析 |
+| **沙箱** | QEMU | 动态分析隔离环境 |
+| **调试器** | WinDbg + KDNET | 内核调试 |
+| **报告** | JSON / HTML / Markdown / SARIF / DOT | 多格式输出 |
+| **测试** | pytest | 2100+ 单元测试 |
+| **CI/CD** | GitHub Actions | 自动化测试 |
+
+---
+
+## 🧪 测试
+
+```bash
+# 运行全部测试
+python -m pytest tests/ -v
+
+# 运行特定模块测试
+python -m pytest tests/analysis/ -v
+python -m pytest tests/scoring/ -v
+
+# 覆盖率
+python -m pytest tests/ --cov=src --cov-report=html
+```
+
+**测试覆盖**: 2100+ tests, 覆盖全部 37 个分析器 + 评分引擎 + 报告生成 + CLI 命令
+
+---
+
+## 🔒 安全声明
+
+本工具仅用于**安全研究和授权测试**。
+
+- ⚠️ 不得用于未授权系统的漏洞挖掘
+- ⚠️ 生成的 PoC 仅用于验证漏洞存在，不得用于实际攻击
+- ⚠️ 使用者需自行承担法律责任
+
+---
+
+## 📄 License
+
+MIT License
+
+---
+
+<div align="center">
+
+**⭐ 如果这个项目对你有帮助，请给个 Star！**
+
+[GitHub](https://github.com/atreasureboy/above_agent) | [Issues](https://github.com/atreasureboy/above_agent/issues) | [Docs](docs/)
+
+</div>
