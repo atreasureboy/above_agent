@@ -101,6 +101,7 @@ def run_phase1_scan(config: PipelineConfig) -> ScanResult:
         workers=config.ds_workers,
         use_cache=config.ds_use_cache,
         score_engine_name=config.ds_score_engine,
+        include_usermode=config.ds_include_usermode,
     )
 
     elapsed = time.time() - start

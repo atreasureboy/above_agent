@@ -116,6 +116,18 @@ def main(argv: list[str] | None = None) -> int:
     # --- check-env subcommand (dynamic analysis environment) ---
     ce = subparsers.add_parser("check-env", help="Check dynamic analysis environment (QEMU, WinDbg, KDNET)")
 
+    # --- reverse subcommand (AI-powered reverse engineering, no driver scoring) ---
+    rv = subparsers.add_parser("reverse", help="AI-powered reverse engineering of any PE file (no BYOVD scoring)")
+    rv.add_argument("target", help="Path to PE file (.exe, .dll, .sys, or directory)")
+    rv.add_argument("--workspace", "-w", default="workspace", help="Output workspace directory")
+    rv.add_argument("--ov-url", help="OVOIDA LLM API URL (e.g. https://api.deepseek.com/v1)")
+    rv.add_argument("--ov-key", help="OVOIDA LLM API key")
+    rv.add_argument("--ov-model", default="deepseek-chat", help="OVOIDA LLM model name")
+    rv.add_argument("--ov-max-iter", type=int, default=30, help="OVOIDA max iterations")
+    rv.add_argument("--ov-timeout", type=int, default=0, help="OVOIDA timeout (s, 0=unlimited)")
+    rv.add_argument("--output", "-o", help="Output JSON report path")
+    rv.add_argument("--ovoida-root", help="Override OVOIDA project root path")
+
     args = parser.parse_args(argv)
 
     if args.command == "pipeline":
@@ -124,6 +136,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_scan(args)
     elif args.command == "deep":
         return _run_deep(args)
+    elif args.command == "reverse":
+        return _run_reverse(args)
     elif args.command == "report":
         return _run_report(args)
     elif args.command == "list-analyzers":
@@ -303,6 +317,188 @@ def _run_deep(args: argparse.Namespace) -> int:
     except RuntimeError as e:
         print(f"[error] {e}", file=sys.stderr)
         return 1
+
+    return 0
+
+
+def _run_reverse(args: argparse.Namespace) -> int:
+    """AI-powered reverse engineering — skip BYOVD scoring, send directly to OVOIDA."""
+    import os
+    import subprocess
+
+    target = Path(args.target)
+    if not target.exists():
+        print(f"[error] Target not found: {target}", file=sys.stderr)
+        return 1
+
+    workspace = Path(args.workspace)
+    workspace.mkdir(parents=True, exist_ok=True)
+    session_dir = workspace / "sessions" / target.stem
+    session_dir.mkdir(parents=True, exist_ok=True)
+
+    print(f"\n{'=' * 60}")
+    print(f"  AI Reverse Engineering (no BYOVD scoring)")
+    print(f"  Target: {target}")
+    print(f"  Model: {args.ov_model}")
+    print(f"{'=' * 60}")
+
+    # Extract PE metadata
+    from src.ingestion.pe_parser import ingest, is_driver_pe
+    from src.ingestion.usermode_parser import ingest_usermode
+    import pefile
+
+    try:
+        pe = pefile.PE(str(target), fast_load=False)
+    except pefile.PEFormatError as e:
+        print(f"[error] Not a valid PE: {e}", file=sys.stderr)
+        return 1
+
+    is_drv = is_driver_pe(pe)
+    if is_drv:
+        sample = ingest(target)
+    else:
+        sample = ingest_usermode(target)
+
+    # Build context for OVOIDA
+    context = {
+        "sample": {
+            "name": sample.name,
+            "path": str(target),
+            "sha256": sample.sha256,
+            "arch": sample.arch.value,
+            "is_driver": is_drv,
+            "binary_type": getattr(sample, "binary_type", "sys" if is_drv else "exe"),
+            "size": sample.size,
+            "compile_timestamp": sample.compile_timestamp,
+            "entry_point": hex(sample.entry_point) if sample.entry_point else "0x0",
+            "sections": sample.sections[:20],
+            "debug_path": sample.debug_path,
+        },
+        "imports": sample.imports[:200],
+        "exports": sample.exports[:50],
+        "strings": [],
+        "analysis_note": (
+            "This is a GENERAL reverse engineering task — NOT a BYOVD driver vulnerability scan. "
+            "Analyze the binary's purpose, functionality, interesting behaviors, and potential risks. "
+            "Focus on: what does this program do? How does it work? What APIs does it call and why? "
+            "Are there any suspicious or interesting behaviors?"
+        ),
+    }
+
+    # Extract interesting strings
+    try:
+        data = target.read_bytes()
+        import re
+        ascii_strings = re.findall(rb'[\x20-\x7e]{6,}', data)
+        context["strings"] = [s.decode("ascii", errors="replace") for s in ascii_strings[:100]]
+    except Exception:
+        pass
+
+    # Write context
+    context_path = session_dir / "reverse_context.json"
+    context_path.write_text(json.dumps(context, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    # Build OVOIDA task prompt
+    task = (
+        f"你是高级逆向工程师。请对以下二进制文件进行深度分析。\n\n"
+        f"## 目标文件\n"
+        f"- 路径: {target}\n"
+        f"- 类型: {'Windows 驱动 (.sys)' if is_drv else 'User-mode PE (.exe/.dll)'}\n"
+        f"- 架构: {sample.arch.value}\n"
+        f"- SHA256: {sample.sha256}\n"
+        f"- 大小: {sample.size} bytes\n"
+        f"- 入口点: {hex(sample.entry_point) if sample.entry_point else 'N/A'}\n"
+        f"- 编译时间戳: {sample.compile_timestamp}\n\n"
+        f"## 导入函数 ({len(sample.imports)} 个)\n"
+        f"{json.dumps(sample.imports[:100], indent=2)}\n\n"
+        f"## 导出函数 ({len(sample.exports)} 个)\n"
+        f"{json.dumps(sample.exports[:30], indent=2)}\n\n"
+        f"## 区段\n"
+        f"{json.dumps(sample.sections[:15], indent=2)}\n\n"
+        f"## 字符串 (前100条)\n"
+        f"{json.dumps(context['strings'][:100], indent=2)}\n\n"
+        f"## 你的任务\n"
+        f"请从以下角度全面分析此程序：\n"
+        f"1. **功能概述**: 这个程序是做什么的？\n"
+        f"2. **技术分析**: 关键 API 调用的目的和含义\n"
+        f"3. **工作流程**: 推测程序的执行流程\n"
+        f"4. **风险/特征**: 是否有任何可疑或值得注意的行为\n"
+        f"5. **结论**: 综合判断此程序的性质和意图\n\n"
+        f"请用中文回复，提供详细的技术分析。"
+    )
+
+    # Direct API call (OVOIDA agent is for BYOVD pipeline, reverse mode uses direct API)
+    return _call_api_directly(task, args, session_dir, target)
+
+
+def _call_api_directly(task: str, args, session_dir: Path, target: Path) -> int:
+    """Direct API call fallback when OVOIDA agent is unavailable."""
+    import urllib.request
+    import urllib.error
+
+    api_url = args.ov_url or os.environ.get("OPENAI_BASE_URL", "https://api.deepseek.com/v1")
+    api_key = args.ov_key or os.environ.get("OPENAI_API_KEY", "")
+    model = args.ov_model or "deepseek-chat"
+
+    if not api_key:
+        print("[error] No API key provided. Use --ov-key or set OPENAI_API_KEY env var.", file=sys.stderr)
+        return 1
+
+    if not api_url.endswith("/chat/completions"):
+        api_url = api_url.rstrip("/") + "/chat/completions"
+
+    print(f"[reverse] Calling {api_url} with model {model}...")
+
+    payload = json.dumps({
+        "model": model,
+        "messages": [{"role": "user", "content": task}],
+        "max_tokens": 4096,
+        "temperature": 0.3,
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        api_url,
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        },
+        method="POST",
+    )
+
+    try:
+        timeout = args.ov_timeout if args.ov_timeout > 0 else 180
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = json.loads(resp.read())
+            content = body["choices"][0]["message"]["content"]
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode("utf-8", errors="replace")[:500]
+        print(f"[error] API returned HTTP {e.code}: {err_body}", file=sys.stderr)
+        return 1
+    except Exception as e:
+        print(f"[error] API call failed: {e}", file=sys.stderr)
+        return 1
+
+    # Print result
+    print(f"\n{'=' * 60}")
+    print(f"  AI Analysis Result")
+    print(f"{'=' * 60}\n")
+    print(content)
+
+    # Save
+    output_path = Path(args.output) if args.output else session_dir / "reverse_result.json"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    report = {
+        "tool": "DEVOPS_driver (AI Reverse - Direct API)",
+        "target": str(target),
+        "model": model,
+        "api_url": api_url,
+        "analysis": content,
+        "usage": body.get("usage", {}),
+    }
+    output_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+    print(f"\n[reverse] Report written to {output_path}")
 
     return 0
 

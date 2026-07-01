@@ -71,6 +71,11 @@ def extract_imports(pe: pefile.PE) -> list[str]:
         for entry in pe.DIRECTORY_ENTRY_IMPORT:
             dll_name = entry.dll.decode("utf-8", errors="replace")
             imports.append(dll_name)
+            # Also extract individual API function names
+            for imp in entry.imports:
+                if imp.name:
+                    api_name = imp.name.decode("utf-8", errors="replace")
+                    imports.append(api_name)
     except Exception as e:
         logging.warning("[usermode_parser] Failed to extract imports: %s", e)
     return imports
@@ -199,6 +204,7 @@ def ingest_usermode(sample_path: Path) -> Sample:
 
     try:
         pe = pefile.PE(data=raw, fast_load=True)
+        pe.parse_data_directories()
     except pefile.PEFormatError as e:
         raise ValueError(f"Not a valid PE file: {sample_path}") from e
 
