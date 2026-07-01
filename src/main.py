@@ -603,8 +603,8 @@ def _run_validate(args: argparse.Namespace) -> int:
     # Step 1: Static analysis baseline
     print("\n[validate] Step 1: Static analysis for baseline...")
     from src.config import PipelineConfig
-    from src.disassembly.backend_selector import get_backend
-    from src.ingestion.pe_parser import ingest_file
+    from src.disassembly import get_backend
+    from src.ingestion.pe_parser import ingest_any_pe
     from src.analysis.core.registry import run_all_analyzers
 
     try:
@@ -701,8 +701,8 @@ def _run_correlate(args: argparse.Namespace) -> int:
     print(f"\n[correlate] Running multi-driver correlation analysis...")
 
     from src.models import Sample, Architecture, SignatureStatus
-    from src.ingestion.pe_parser import ingest_file
-    from src.disassembly.backend_selector import get_backend
+    from src.ingestion.pe_parser import ingest_any_pe
+    from src.disassembly import get_backend
     from src.analysis.core.multi_driver_correlator import MultiDriverCorrelator
     from src.analysis.core.protocol_analyzer import ProtocolAnalyzer
     from src.report.attack_graph import build_cross_driver_graph, export_attack_graph, graph_to_dot

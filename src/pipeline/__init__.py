@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from src.config import PipelineConfig
+from src.models import Sample
 
 
 # ---------------------------------------------------------------------------

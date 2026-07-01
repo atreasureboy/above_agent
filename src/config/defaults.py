@@ -174,11 +174,9 @@ DANGEROUS_API_WEIGHTS: dict[str, int] = {
     "KeInitializeApc": 14,
     "KeInsertQueueApc": 16,
     "KeForceInsertQueueApc": 18,
-    "ZwSuspendThread": 10,
     "ZwGetContextThread": 14,
     "ZwSetContextThread": 14,
     # Registry callback (360 registry protection)
-    "CmRegisterCallback": 12,
     "CmRegisterCallbackEx": 12,
     # Named pipe communication
     "NtCreateNamedPipeFile": 12,
@@ -345,18 +343,14 @@ CATEGORY_WEIGHTS: dict[str, float] = {
     "registry_callback": 1.6,
     # Phase 8: Object callback protection
     "object_callback": 2.0,
-    # Phase 3: VMProtect / Themida
-    "vm_protect": 2.0,
-    "vm_entry": 2.5,
+    # Phase 3: VMProtect / Themida (additional)
     "vm_handler": 1.6,
 
     # Wave 1: Enhanced string decryption
     "string_decrypted": 1.6,
-    "string_encryption": 1.4,
 
     # Wave 2: Extended API hash resolution
     "api_hash_resolved_extended": 1.8,
-    "api_hashing": 1.6,
 
     # Wave 3: Advanced taint analysis
     "unvalidated_data_flow": 1.2,
@@ -389,7 +383,6 @@ CATEGORY_WEIGHTS: dict[str, float] = {
     "ioctl_command_inferred": 1.2,
     "alpc_port_exposed": 1.0,
     "named_pipe_exposed": 1.0,
-    "alpc_port_name": 1.6,
 
     # Minifilter
     "minifilter_rules_analyzed": 0.6,
