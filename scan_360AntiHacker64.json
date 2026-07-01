@@ -1,0 +1,46 @@
+{
+  "tool": "DEVOPS_driver (Phase 1 only)",
+  "target": "C:\\Windows\\System32\\drivers\\360AntiHacker64.sys",
+  "summary": {
+    "scanned": 1,
+    "high_risk": 1,
+    "critical": 1,
+    "high": 0,
+    "avg_score": 10.0
+  },
+  "top_samples": [
+    {
+      "name": "360AntiHacker64",
+      "company": "",
+      "driver_type": "UNKNOWN",
+      "arch": "x64",
+      "sha256": "5ec905b5c074e55e5d5cffcbab7a7120cbe09f6420053c902fd653791de47beb",
+      "risk_score": 10.0,
+      "risk_level": "CRITICAL",
+      "finding_count": 0,
+      "findings": [],
+      "path": "C:\\Windows\\System32\\drivers\\360AntiHacker64.sys",
+      "imports": [],
+      "exports": [],
+      "strings": [],
+      "entry_point": "0x33064",
+      "compile_timestamp": 1701071017,
+      "debug_path": "",
+      "sections": [
+        ".text",
+        ".rdata",
+        ".data",
+        ".pdata",
+        "PAGE",
+        "INIT",
+        ".rsrc",
+        ".reloc"
+      ],
+      "functions": [],
+      "ioctl_handlers": {},
+      "irp_handlers": {},
+      "disassembly_backend": "none",
+      "device_names": []
+    }
+  ]
+}

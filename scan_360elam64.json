@@ -1,0 +1,943 @@
+{
+  "tool": "DEVOPS_driver (Phase 1 only)",
+  "target": "C:\\Windows\\System32\\drivers\\360elam64.sys",
+  "summary": {
+    "scanned": 1,
+    "high_risk": 1,
+    "critical": 0,
+    "high": 0,
+    "avg_score": 5.7
+  },
+  "top_samples": [
+    {
+      "name": "360elam64",
+      "company": "",
+      "driver_type": "UNKNOWN",
+      "arch": "x64",
+      "sha256": "cfa71ff2e86183b1dfbb093c13deb73ba7cc33153b74dfb1b06839f16ca684ac",
+      "risk_score": 5.7,
+      "risk_level": "MEDIUM",
+      "finding_count": 17,
+      "findings": [
+        {
+          "category": "alpc_port_name",
+          "severity": "critical",
+          "confidence": 0.9,
+          "description": "ALPC port names detected: C:\\vmagent_new\\bin\\joblist\\712834\\out\\Release\\360elam64.pdb. Driver exposes named communication endpoints.",
+          "function_address": 0,
+          "instruction_address": 0,
+          "api_name": "",
+          "ioctl_code": 0,
+          "context": {
+            "port_strings": [
+              "C:\\vmagent_new\\bin\\joblist\\712834\\out\\Release\\360elam64.pdb"
+            ],
+            "has_rpc_control": false,
+            "has_security_product_naming": true
+          },
+          "evidence": [
+            {
+              "type": "string",
+              "location": "binary strings",
+              "snippet": "C:\\vmagent_new\\bin\\joblist\\712834\\out\\Release\\360elam64.pdb",
+              "rule_id": "ALPC_PORT"
+            }
+          ]
+        },
+        {
+          "category": "packed_binary",
+          "severity": "critical",
+          "confidence": 0.9,
+          "description": "Driver appears to be packed/protected: None. No import table (likely packed or manually resolved)",
+          "function_address": 0,
+          "instruction_address": 0,
+          "api_name": "",
+          "ioctl_code": 0,
+          "context": {
+            "packer_name": null,
+            "high_entropy_sections": [],
+            "section_entropy": {
+              ".text": 1.52,
+              ".rdata": 3.18,
+              ".data": 4.87,
+              ".pdata": 0.6,
+              "PAGE": 1.66,
+              "INIT": 4.05,
+              ".rsrc": 3.06,
+              ".reloc": 0.45
+            },
+            "empty_iat": true,
+            "entry_point_anomaly": false,
+            "reasons": [
+              "No import table (likely packed or manually resolved)"
+            ]
+          },
+          "evidence": [
+            {
+              "type": "pe_analysis",
+              "location": "PE headers + sections",
+              "snippet": "No import table (likely packed or manually resolved)",
+              "rule_id": "PACKER_DETECT"
+            }
+          ]
+        },
+        {
+          "category": "inline_hook",
+          "severity": "critical",
+          "confidence": 0.9,
+          "description": "Function sub_6002: Potential inline hook detected. Score=6. Signals: Hook tramppline: CALL redirect; Hook tramppline: JMP redirect.",
+          "function_address": "0x6002",
+          "instruction_address": 0,
+          "api_name": "",
+          "ioctl_code": 0,
+          "context": {
+            "hook_score": 6,
+            "hook_signals": [
+              {
+                "address": "0x6017",
+                "type": "unconditional_call",
+                "desc": "Hook tramppline: CALL redirect"
+              },
+              {
+                "address": "0x602d",
+                "type": "unconditional_jump",
+                "desc": "Hook tramppline: JMP redirect"
+              }
+            ],
+            "legitimate_prologue": true
+          },
+          "evidence": [
+            {
+              "type": "instruction_pattern",
+              "location": "sub_6002",
+              "snippet": "Hook tramppline: CALL redirect",
+              "rule_id": "INLINE_HOOK"
+            }
+          ]
+        },
+        {
+          "category": "inline_hook",
+          "severity": "high",
+          "confidence": 0.7,
+          "description": "Function sub_6056: Potential inline hook detected. Score=3. Signals: Hook tramppline: CALL redirect.",
+          "function_address": "0x6056",
+          "instruction_address": 0,
+          "api_name": "",
+          "ioctl_code": 0,
+          "context": {
+            "hook_score": 3,
+            "hook_signals": [
+              {
+                "address": "0x6060",
+                "type": "unconditional_call",
+                "desc": "Hook tramppline: CALL redirect"
+              }
+            ],
+            "legitimate_prologue": true
+          },
+          "evidence": [
+            {
+              "type": "instruction_pattern",
+              "location": "sub_6056",
+              "snippet": "Hook tramppline: CALL redirect",
+              "rule_id": "INLINE_HOOK"
+            }
+          ]
+        },
+        {
+          "category": "inline_hook",
+          "severity": "high",
+          "confidence": 0.7,
+          "description": "Function sub_1056: Potential inline hook detected. Score=3. Signals: Indirect JMP via register — possible hook.",
+          "function_address": "0x1056",
+          "instruction_address": 0,
+          "api_name": "",
+          "ioctl_code": 0,
+          "context": {
+            "hook_score": 3,
+            "hook_signals": [
+              {
+                "address": "0x1070",
+                "type": "jmp_reg",
+                "desc": "Indirect JMP via register — possible hook"
+              }
+            ],
+            "legitimate_prologue": false
+          },
+          "evidence": [
+            {
+              "type": "instruction_pattern",
+              "location": "sub_1056",
+              "snippet": "Indirect JMP via register — possible hook",
+              "rule_id": "INLINE_HOOK"
+            }
+          ]
+        },
+        {
+          "category": "inline_hook",
+          "severity": "high",
+          "confidence": 0.7,
+          "description": "Function sub_500E: Potential inline hook detected. Score=3. Signals: Hook tramppline: CALL redirect.",
+          "function_address": "0x500e",
+          "instruction_address": 0,
+          "api_name": "",
+          "ioctl_code": 0,
+          "context": {
+            "hook_score": 3,
+            "hook_signals": [
+              {
+                "address": "0x505e",
+                "type": "unconditional_call",
+                "desc": "Hook tramppline: CALL redirect"
+              }
+            ],
+            "legitimate_prologue": true
+          },
+          "evidence": [
+            {
+              "type": "instruction_pattern",
+              "location": "sub_500E",
+              "snippet": "Hook tramppline: CALL redirect",
+              "rule_id": "INLINE_HOOK"
+            }
+          ]
+        },
+        {
+          "category": "idt_hook",
+          "severity": "critical",
+          "confidence": 0.9,
+          "description": "IDT hook indicators: 0 strings, 2 functions with IDT access patterns. This driver may intercept hardware interrupts.",
+          "function_address": 0,
+          "instruction_address": 0,
+          "api_name": "",
+          "ioctl_code": 0,
+          "context": {
+            "idt_strings": [],
+            "idt_access_functions": [
+              {
+                "address": "0x6002",
+                "signals": [
+                  [
+                    "idt_entry_write",
+                    "Write to interrupt descriptor entry"
+                  ],
+                  [
+                    "idt_entry_write",
+                    "Write to interrupt descriptor entry"
+                  ],
+                  [
+                    "idt_entry_write",
+                    "Write to interrupt descriptor entry"
+                  ]
+                ]
+              },
+              {
+                "address": "0x607c",
+                "signals": [
+                  [
+                    "idt_entry_write",
+                    "Write to interrupt descriptor entry"
+                  ]
+                ]
+              }
+            ]
+          },
+          "evidence": [
+            {
+              "type": "instruction_pattern",
+              "location": "binary strings + instructions",
+              "snippet": "IDT modification pattern",
+              "rule_id": "IDT_HOOK"
+            }
+          ]
+        },
+        {
+          "category": "code_self_check",
+          "severity": "medium",
+          "confidence": 0.7,
+          "description": "Code integrity self-check: 0 functions call checksum APIs (), 2 functions with significant self-reading. This driver verifies its own code integrity at runtime.",
+          "function_address": 0,
+          "instruction_address": 0,
+          "api_name": "",
+          "ioctl_code": 0,
+          "context": {
+            "self_check_functions": [],
+            "self_read_functions": [
+              {
+                "address": "0x6002",
+                "read_count": 3
+              },
+              {
+                "address": "0x500e",
+                "read_count": 5
+              }
+            ]
+          },
+          "evidence": [
+            {
+              "type": "api_match",
+              "location": "multiple functions",
+              "snippet": "self-read pattern",
+              "rule_id": "CODE_SELF_CHECK"
+            }
+          ]
+        },
+        {
+          "category": "iat_hook",
+          "severity": "medium",
+          "confidence": 0.4,
+          "description": "IAT hook indicators: 0 strings, 0 functions with IAT APIs, 4 functions with IAT access patterns. This driver may patch Import Address Table entries. Key references: .",
+          "function_address": 0,
+          "instruction_address": 0,
+          "api_name": "",
+          "ioctl_code": 0,
+          "context": {
+            "iat_strings": [],
+            "iat_api_functions": [],
+            "iat_instruction_functions": [
+              {
+                "address": "0x6002",
+                "signals": [
+                  [
+                    "iat_end_check",
+                    "Comparison (possible IAT end-of-table check)"
+                  ],
+                  [
+                    "iat_enumerate",
+                    "Pointer increment (IAT entry enumeration)"
+                  ],
+                  [
+                    "iat_enumerate",
+                    "Pointer increment (IAT entry enumeration)"
+                  ]
+                ]
+              },
+              {
+                "address": "0x6056",
+                "signals": [
+                  [
+                    "iat_enumerate",
+                    "Pointer increment (IAT entry enumeration)"
+                  ]
+                ]
+              },
+              {
+                "address": "0x607c",
+                "signals": [
+                  [
+                    "iat_end_check",
+                    "Comparison (possible IAT end-of-table check)"
+                  ],
+                  [
+                    "iat_end_check",
+                    "Comparison (possible IAT end-of-table check)"
+                  ]
+                ]
+              },
+              {
+                "address": "0x500e",
+                "signals": [
+                  [
+                    "iat_end_check",
+                    "Comparison (possible IAT end-of-table check)"
+                  ],
+                  [
+                    "iat_end_check",
+                    "Comparison (possible IAT end-of-table check)"
+                  ],
+                  [
+                    "iat_end_check",
+                    "Comparison (possible IAT end-of-table check)"
+                  ],
+                  [
+                    "iat_enumerate",
+                    "Pointer increment (IAT entry enumeration)"
+                  ],
+                  [
+                    "iat_enumerate",
+                    "Pointer increment (IAT entry enumeration)"
+                  ]
+                ]
+              }
+            ],
+            "has_iat_write": false
+          },
+          "evidence": [
+            {
+              "type": "instruction_pattern",
+              "location": "instruction stream",
+              "snippet": "IAT hook pattern",
+              "rule_id": "IAT_HOOK"
+            }
+          ]
+        },
+        {
+          "category": "eat_hook",
+          "severity": "medium",
+          "confidence": 0.4,
+          "description": "EAT hook indicators: 0 strings, 0 functions with EAT APIs, 4 functions with EAT access patterns. This driver may modify Export Address Table entries. Key references: .",
+          "function_address": 0,
+          "instruction_address": 0,
+          "api_name": "",
+          "ioctl_code": 0,
+          "context": {
+            "eat_strings": [],
+            "eat_api_functions": [],
+            "eat_instruction_functions": [
+              {
+                "address": "0x6002",
+                "signals": [
+                  [
+                    "eat_enumerate",
+                    "Pointer increment (EAT entry enumeration)"
+                  ],
+                  [
+                    "eat_enumerate",
+                    "Pointer increment (EAT entry enumeration)"
+                  ]
+                ]
+              },
+              {
+                "address": "0x6056",
+                "signals": [
+                  [
+                    "eat_enumerate",
+                    "Pointer increment (EAT entry enumeration)"
+                  ]
+                ]
+              },
+              {
+                "address": "0x1056",
+                "signals": [
+                  [
+                    "eat_ordinal_cmp",
+                    "Ordinal/index comparison (EAT lookup)"
+                  ]
+                ]
+              },
+              {
+                "address": "0x500e",
+                "signals": [
+                  [
+                    "eat_enumerate",
+                    "Pointer increment (EAT entry enumeration)"
+                  ],
+                  [
+                    "eat_enumerate",
+                    "Pointer increment (EAT entry enumeration)"
+                  ]
+                ]
+              }
+            ],
+            "has_eat_write": false
+          },
+          "evidence": [
+            {
+              "type": "instruction_pattern",
+              "location": "instruction stream",
+              "snippet": "EAT hook pattern",
+              "rule_id": "EAT_HOOK"
+            }
+          ]
+        },
+        {
+          "category": "ioctl_dispatcher",
+          "severity": "info",
+          "confidence": 0.7,
+          "description": "Other IRP handlers: IRP_MJ_0x0D(sub_6036)",
+          "function_address": 0,
+          "instruction_address": 0,
+          "api_name": "",
+          "ioctl_code": 0,
+          "context": {
+            "irp_handlers": [
+              "IRP_MJ_0x0D(sub_6036)"
+            ]
+          },
+          "evidence": []
+        },
+        {
+          "category": "fastio_dispatcher",
+          "severity": "info",
+          "confidence": 0.7,
+          "description": "FastIO dispatch detected: offset_0x8->sub_6050, offset_0x30->sub_6070",
+          "function_address": 0,
+          "instruction_address": 0,
+          "api_name": "",
+          "ioctl_code": 0,
+          "context": {
+            "fastio_handlers": {
+              "0x8": "sub_6050",
+              "0x30": "sub_6070"
+            }
+          },
+          "evidence": []
+        },
+        {
+          "category": "array_iteration_cmp",
+          "severity": "info",
+          "confidence": 0.7,
+          "description": "cmp immediate 0x1 in func 0x1056",
+          "function_address": "0x1056",
+          "instruction_address": "0x5004",
+          "api_name": "",
+          "ioctl_code": 0,
+          "context": {
+            "insn_text": "cmp edx, 1",
+            "data_rva": null,
+            "is_whitelist": false,
+            "is_blacklist": false,
+            "is_array_iteration": false,
+            "compared_value": "0x1"
+          },
+          "evidence": [
+            {
+              "type": "instruction_pattern",
+              "location": "func 0x1056",
+              "snippet": "cmp edx, 1",
+              "rule_id": "CT002"
+            }
+          ]
+        },
+        {
+          "category": "data_structure_identified",
+          "severity": "medium",
+          "confidence": 0.9,
+          "description": "IOCTL code table at .rdata:0x2390 (11 entries, 4 matched)",
+          "function_address": 0,
+          "instruction_address": "0x2390",
+          "api_name": "",
+          "ioctl_code": 0,
+          "context": {
+            "rva": 9104,
+            "section": ".rdata",
+            "type": "ioctl_table",
+            "element_count": 11,
+            "matched_codes": [
+              "0x40602",
+              "0x30402",
+              "0x60a02",
+              "0x6340a"
+            ]
+          },
+          "evidence": [
+            {
+              "type": "instruction_pattern",
+              "location": ".rdata:0x2390",
+              "snippet": "[0x40602, 0x30402, 0x60a02, 0x6340a]",
+              "rule_id": "DS001"
+            }
+          ]
+        },
+        {
+          "category": "dse_bypass",
+          "severity": "medium",
+          "confidence": 0.4,
+          "description": "DSE bypass indicators: 0 strings, 0 functions with DSE APIs, 1 functions with suspicious instruction patterns. This driver may bypass Driver Signature Enforcement. Key strings: .",
+          "function_address": 0,
+          "instruction_address": 0,
+          "api_name": "",
+          "ioctl_code": 0,
+          "context": {
+            "dse_strings": [],
+            "techniques": [],
+            "dse_api_functions": [],
+            "dse_instruction_functions": [
+              {
+                "address": "0x6002",
+                "signals": [
+                  [
+                    "xor_clear",
+                    "Register zeroing (common before writing to DSE variable)"
+                  ]
+                ]
+              }
+            ],
+            "has_g_cioptions": false,
+            "has_testsigning": false
+          },
+          "evidence": [
+            {
+              "type": "instruction_pattern",
+              "location": "instruction stream",
+              "snippet": "DSE bypass pattern",
+              "rule_id": "DSE_BYPASS"
+            }
+          ]
+        },
+        {
+          "category": "string_rva_resolved",
+          "severity": "medium",
+          "confidence": 0.9,
+          "description": "String RVA table at .rdata:0x226C (1/29 resolved)",
+          "function_address": 0,
+          "instruction_address": "0x226c",
+          "api_name": "",
+          "ioctl_code": 0,
+          "context": {
+            "table_rva": 8812,
+            "section": ".rdata",
+            "total_entries": 29,
+            "resolved_count": 1,
+            "strings": [
+              "RSA1"
+            ]
+          },
+          "evidence": [
+            {
+              "type": "instruction_pattern",
+              "location": ".rdata:0x226C",
+              "snippet": "[RSA1]",
+              "rule_id": "MM001"
+            }
+          ]
+        },
+        {
+          "category": "ioctl_dispatcher",
+          "severity": "info",
+          "confidence": 1.0,
+          "description": "Coverage: functions=100%, CFG blocks=100%, handlers=0%, overall=100.0%",
+          "function_address": 0,
+          "instruction_address": 0,
+          "api_name": "",
+          "ioctl_code": 0,
+          "context": {
+            "coverage_report": {
+              "function_coverage": {
+                "total": 9,
+                "analyzed": 9,
+                "unanalyzed": 0,
+                "ratio": 1.0
+              },
+              "cfg_block_coverage": {
+                "total": 15,
+                "visited": 15,
+                "ratio": 1.0
+              },
+              "api_coverage": {
+                "known": 140,
+                "detected": 0,
+                "undetected": [
+                  "CmRegisterCallback",
+                  "CmRegisterCallbackEx",
+                  "ExAllocatePool",
+                  "ExAllocatePool2",
+                  "ExAllocatePool3",
+                  "ExAllocatePoolWithTag",
+                  "ExFreePool",
+                  "ExFreePoolWithTag",
+                  "ExGetPreviousMode",
+                  "ExRegisterCallback",
+                  "HalGetPhysicalAddress",
+                  "HalSetSystemInformation",
+                  "IoAllocateAdapterChannel",
+                  "IoAllocateWorkItem",
+                  "IoBuildDeviceIoControlRequest",
+                  "IoCallDriver",
+                  "IoConnectInterrupt",
+                  "IoConnectInterruptEx",
+                  "IoCreateDevice",
+                  "IoCreateDeviceSecure",
+                  "IoCreateFileSpecifyDeviceObjectHint",
+                  "IoCreateSymbolicLink",
+                  "IoDisconnectInterrupt",
+                  "IoFreeWorkItem",
+                  "IoGetDeviceObjectPointer",
+                  "IoGetDmaAdapter",
+                  "IoMapTransfer",
+                  "IoQueueWorkItem",
+                  "IoRegisterShutdownNotification",
+                  "KeForceInsertQueueApc",
+                  "KeInitializeApc",
+                  "KeInitializeDpc",
+                  "KeInsertQueueApc",
+                  "KeReadMsr",
+                  "KeRegisterNmiCallback",
+                  "KeSetTimer",
+                  "KeSetTimerEx",
+                  "KeStackAttachProcess",
+                  "KeUnstackDetachProcess",
+                  "KeWriteMsr",
+                  "MmAllocateAdapterChannel",
+                  "MmAllocateContiguousMemory",
+                  "MmAllocateContiguousMemorySpecifyCache",
+                  "MmAllocateContiguousMemorySpecifyCacheNode",
+                  "MmCopyMemory",
+                  "MmCopyVirtualMemory",
+                  "MmGetPhysicalAddress",
+                  "MmGetPhysicalAddressEx",
+                  "MmGetPhysicalMemoryRanges",
+                  "MmGetPhysicalMemoryRangesEx",
+                  "MmGetPhysicalMemoryRangesEx2",
+                  "MmGetVirtualForPhysical",
+                  "MmIsAddressValid",
+                  "MmLockPagableCodeSection",
+                  "MmMapIoSpace",
+                  "MmMapIoSpaceEx",
+                  "MmMapLockedPages",
+                  "MmMapLockedPagesSpecifyCache",
+                  "MmMapVideoDisplay",
+                  "MmMapViewInSessionSpace",
+                  "MmMapViewInSystemSpace",
+                  "MmProbeAndLockPages",
+                  "MmProbeAndLockProcessPages",
+                  "MmUnmapVideoDisplay",
+                  "NtAllocateVirtualMemory",
+                  "NtCreateFile",
+                  "NtCreateKey",
+                  "NtCreateNamedPipeFile",
+                  "NtFreeVirtualMemory",
+                  "NtFsControlFile",
+                  "NtLoadDriver",
+                  "NtMapViewOfSection",
+                  "NtReadVirtualMemory",
+                  "NtSetValueKey",
+                  "NtUnloadDriver",
+                  "NtWriteVirtualMemory",
+                  "ObOpenObjectByPointer",
+                  "ObReferenceObjectByHandle",
+                  "ObRegisterCallbacks",
+                  "ObUnRegisterCallbacks",
+                  "ProbeForRead",
+                  "ProbeForWrite",
+                  "PsCreateSystemThread",
+                  "PsImpersonateClient",
+                  "PsLookupProcessByProcessId",
+                  "PsLookupThreadByThreadId",
+                  "PsRemoveLoadImageNotifyRoutine",
+                  "PsSetCreateProcessNotifyRoutine",
+                  "PsSetCreateThreadNotifyRoutine",
+                  "PsSetLoadImageNotifyRoutine",
+                  "PsTerminateSystemThread",
+                  "PsWrapApcWow64Thread",
+                  "RtlCopyMemory",
+                  "RtlWriteRegistryValue",
+                  "SeAssignSecurity",
+                  "SeCreateClientSecurity",
+                  "SeImpersonateClientEx",
+                  "SeQuerySecurityDescriptorInfo",
+                  "SeSinglePrivilegeCheck",
+                  "WdfCommonBufferCreate",
+                  "WdfDmaEnablerCreate",
+                  "WdfDmaTransactionCreate",
+                  "WdfDmaTransactionInitialize",
+                  "WdfIoQueueReadyNotify",
+                  "WdfIoTargetSendIoctlSynchronously",
+                  "WdfMemoryCreate",
+                  "WdfObjectGetTypedContext",
+                  "WdfRequestRetrieveParameters",
+                  "WdfWorkItemEnqueue",
+                  "ZwAllocateVirtualMemory",
+                  "ZwCreateFile",
+                  "ZwCreateKey",
+                  "ZwCreateNamedPipeFile",
+                  "ZwCreateThreadEx",
+                  "ZwDeleteKey",
+                  "ZwDeviceIoControlFile",
+                  "ZwDuplicateObject",
+                  "ZwEnumerateKey",
+                  "ZwFreeVirtualMemory",
+                  "ZwFsControlFile",
+                  "ZwGetContextThread",
+                  "ZwLoadDriver",
+                  "ZwMapViewOfSection",
+                  "ZwOpenProcess",
+                  "ZwOpenThread",
+                  "ZwQueueApcThread",
+                  "ZwReadFile",
+                  "ZwReadVirtualMemory",
+                  "ZwResumeThread",
+                  "ZwSetContextThread",
+                  "ZwSetInformationProcess",
+                  "ZwSetInformationToken",
+                  "ZwSetValueKey",
+                  "ZwSuspendThread",
+                  "ZwTerminateThread",
+                  "ZwUnloadDriver",
+                  "ZwWriteFile",
+                  "ZwWriteVirtualMemory",
+                  "__readmsr",
+                  "__writemsr"
+                ],
+                "ratio": 0.0
+              },
+              "ioctl_handler_coverage": {
+                "total": 0,
+                "with_cfg": 0,
+                "analyzed": 0,
+                "ratio": 0.0
+              },
+              "taint_coverage": {
+                "sources": 0,
+                "sinks": 0,
+                "confirmed_paths": 0
+              },
+              "overall_coverage": 1.0
+            },
+            "coverage_type": "analysis_coverage"
+          },
+          "evidence": [
+            {
+              "type": "coverage_metrics",
+              "location": "analysis_pipeline",
+              "snippet": "Coverage: functions=100%, CFG blocks=100%, handlers=0%, overall=100.0%",
+              "rule_id": "COV_ANALYSIS"
+            }
+          ]
+        }
+      ],
+      "path": "C:\\Windows\\System32\\drivers\\360elam64.sys",
+      "imports": [],
+      "exports": [],
+      "strings": [
+        "RSDS({4",
+        "C:\\vmagent_new\\bin\\joblist\\712834\\out\\Release\\360elam64.pdb",
+        ".text$mn",
+        ".text$mn$00",
+        ".idata$5",
+        ".00cfg",
+        ".gfids",
+        ".rdata",
+        ".rdata$zzzdbg",
+        ".xdata",
+        ".data",
+        ".bss",
+        ".pdata",
+        "PAGE",
+        "INIT",
+        ".idata$2",
+        ".idata$3",
+        ".idata$4",
+        ".idata$6",
+        ".rsrc$01",
+        ".rsrc$02",
+        "RSA1",
+        "-:S7",
+        "]A6\"d$",
+        "3I`X",
+        "ALf+j",
+        "3Egc",
+        "3Egs"
+      ],
+      "entry_point": "0x6050",
+      "compile_timestamp": 1677038437,
+      "debug_path": "",
+      "sections": [
+        ".text",
+        ".rdata",
+        ".data",
+        ".pdata",
+        "PAGE",
+        "INIT",
+        ".rsrc",
+        ".reloc"
+      ],
+      "functions": [
+        {
+          "address": "0x6002",
+          "name": "sub_6002",
+          "size": 63,
+          "api_calls": [],
+          "api_details": [],
+          "calls": [
+            "0x1050"
+          ],
+          "called_by": []
+        },
+        {
+          "address": "0x6056",
+          "name": "sub_6056",
+          "size": 36,
+          "api_calls": [],
+          "api_details": [],
+          "calls": [
+            "0x607c",
+            "0x6000"
+          ],
+          "called_by": []
+        },
+        {
+          "address": "0x1050",
+          "name": "sub_1050",
+          "size": 1,
+          "api_calls": [],
+          "api_details": [],
+          "calls": [],
+          "called_by": [
+            "0x6002"
+          ]
+        },
+        {
+          "address": "0x6000",
+          "name": "sub_6000",
+          "size": 1,
+          "api_calls": [],
+          "api_details": [],
+          "calls": [],
+          "called_by": [
+            "0x6056"
+          ]
+        },
+        {
+          "address": "0x607c",
+          "name": "sub_607C",
+          "size": 109,
+          "api_calls": [],
+          "api_details": [],
+          "calls": [],
+          "called_by": [
+            "0x6056"
+          ]
+        },
+        {
+          "address": "0x1056",
+          "name": "sub_1056",
+          "size": 16809,
+          "api_calls": [],
+          "api_details": [],
+          "calls": [],
+          "called_by": [
+            "0x500e"
+          ]
+        },
+        {
+          "address": "0x500e",
+          "name": "sub_500E",
+          "size": 90,
+          "api_calls": [],
+          "api_details": [],
+          "calls": [
+            "0x1056"
+          ],
+          "called_by": []
+        },
+        {
+          "address": "0x5068",
+          "name": "sub_5068",
+          "size": 407,
+          "api_calls": [],
+          "api_details": [],
+          "calls": [],
+          "called_by": []
+        },
+        {
+          "address": "0x60a2",
+          "name": "sub_60A2",
+          "size": 71,
+          "api_calls": [],
+          "api_details": [],
+          "calls": [],
+          "called_by": []
+        }
+      ],
+      "ioctl_handlers": {},
+      "irp_handlers": {
+        "0xd": "sub_6036"
+      },
+      "disassembly_backend": "capstone",
+      "device_names": [
+        "\\\\.\\\\360elam"
+      ]
+    }
+  ]
+}

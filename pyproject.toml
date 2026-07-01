@@ -1,0 +1,16 @@
+[project]
+name = "devops-driver"
+version = "0.1.0"
+description = "Unified Windows Driver Analysis Platform — DriverScope + OVOIDA"
+requires-python = ">=3.10"
+dependencies = [
+    "pefile>=2023.2.7",
+    "capstone>=5.0.1",
+]
+
+[project.scripts]
+devops-driver = "src.main:main"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"

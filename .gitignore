@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Testing
+.pytest_cache/
+
+# Generated reports
+*.html
+*.sarif
+report.json
+
+# Database caches
+*.db
+
+# Environment
+.env
+
+# Samples (real driver binaries, not for version control)
+samples/
+test_samples/
+
+# Ghidra installations (too large for git)
+ghidra_11.3.1_PUBLIC/
+ghidra_11.3.1_PUBLIC.zip
+ghidra_12.1_PUBLIC/
+ghidra_12.1_PUBLIC.zip
+
+# Coverage
+.coverage
+
+# Claude Code local state
+.claude/
+
+# Workspace / scratch directories
+workspace/
+workspace_test/
+components/
+
+# Ad-hoc analysis scripts
+analyze_*.py
