@@ -298,34 +298,124 @@ DEVOPS_driver 是一个面向 **Windows 内核驱动 BYOVD（Bring Your Own Vuln
 
 ### 环境要求
 
-- Python 3.10+
-- Windows 10/11 (x64)
-- Ghidra 11.3+ (可选，用于深度分析)
+**必需：**
+- **Python 3.10+** — [下载地址](https://www.python.org/downloads/)
+  - ⚠️ 安装时勾选 **"Add Python to PATH"**
+- **Node.js 18+** (LTS) — [下载地址](https://nodejs.org/)（OVOIDA AI Agent 需要）
+- **Windows 10/11** (x64/ARM64)
+- **Git** — [下载地址](https://git-scm.com/)
 
-### 一键安装
+**可选：**
+- **Ghidra 11.3+** — [下载地址](https://ghidra-sre.org/)（深度反编译需要，放到项目根目录即可）
+
+### 方式 1：一键安装（推荐）
 
 ```powershell
-# PowerShell (管理员)
+# 1. 克隆仓库
+git clone https://github.com/yourusername/DEVOPS_driver.git
+cd DEVOPS_driver
+
+# 2. 运行安装向导（自动完成所有配置）
 .\setup.ps1
 ```
 
-### 手动安装
+**setup.ps1 会自动完成：**
+- ✅ 检查 Python 3.10+ 和 Node.js
+- ✅ 安装 Python 依赖（`pip install -e .`）
+- ✅ 安装 OVOIDA 依赖（`npm install`）
+- ✅ 构建 OVOIDA（`npm run build`）
+- ✅ 交互式配置 API Key（保存到 `~/.devops_driver/config.json`）
+- ✅ 启动 GUI 界面
 
-```bash
-pip install pefile capstone
-# 可选: 下载 Ghidra 并放到项目根目录
+### 方式 2：手动安装
+
+```powershell
+# 1. 克隆仓库
+git clone https://github.com/yourusername/DEVOPS_driver.git
+cd DEVOPS_driver
+
+# 2. 安装 Python 依赖（开发模式）
+pip install -e .
+
+# 3. 安装 OVOIDA（可选，AI 功能需要）
+cd components\ovoida
+npm install
+npm run build
+cd ..\..
+
+# 4. 验证安装
+python -m src --help
+python -m src list-analyzers  # 应显示 37 个分析器
 ```
 
-### 配置 OVOIDA AI (可选)
+### 配置 AI API
 
-```bash
-# 方式 1: 环境变量
-export OPENAI_API_KEY=sk-xxx
-export OPENAI_BASE_URL=https://api.deepseek.com/v1
+**方式 1：环境变量（永久生效）**
 
-# 方式 2: 命令行参数
-python -m src pipeline samples/ --ov-url https://api.deepseek.com/v1 --ov-key sk-xxx
+```powershell
+# PowerShell（管理员）
+[System.Environment]::SetEnvironmentVariable("OPENAI_API_KEY", "sk-xxx", "User")
+[System.Environment]::SetEnvironmentVariable("OPENAI_BASE_URL", "https://api.deepseek.com/v1", "User")
+# 重启终端生效
 ```
+
+**方式 2：命令行参数（临时）**
+
+```powershell
+python -m src reverse target.exe --ov-url https://api.deepseek.com/v1 --ov-key sk-xxx
+```
+
+**方式 3：配置文件（推荐）**
+
+setup.ps1 会自动创建 `~/.devops_driver/config.json`：
+
+```json
+{
+  "ov_api_url": "https://api.deepseek.com/v1",
+  "ov_api_key": "sk-xxx",
+  "ov_model": "deepseek-chat"
+}
+```
+
+### 快速验证
+
+```powershell
+# 测试 1：检查环境
+python -m src check-env
+
+# 测试 2：列出所有分析器（应显示 37 个）
+python -m src list-analyzers
+
+# 测试 3：扫描示例驱动
+python -m src scan samples/ --output test_report.json
+
+# 测试 4：逆向单个文件（需要 API Key）
+python -m src reverse target.exe --ov-key sk-xxx
+```
+
+### 常见问题
+
+**Q: `pip install -e .` 报错**
+```powershell
+# 确保 Python 3.10+ 且已添加到 PATH
+python --version  # 应显示 3.10+
+pip install --upgrade pip setuptools wheel
+pip install -e .
+```
+
+**Q: OVOIDA 构建失败**
+```powershell
+# 确保 Node.js 18+ 已安装
+node --version  # 应显示 v18+
+cd components\ovoida
+rm -r node_modules  # 清理后重试
+npm install
+npm run build
+```
+
+**Q: Ghidra 反编译超时**
+- 确保 Ghidra 已下载并解压到项目根目录
+- 或设置环境变量：`$env:GHIDRA_INSTALL_DIR = "C:\path\to\ghidra"`
 
 ---
 
