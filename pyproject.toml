@@ -8,6 +8,21 @@ dependencies = [
     "capstone>=5.0.1",
 ]
 
+[project.optional-dependencies]
+dynamic = [
+    "pywinrm>=0.4.3",          # WinRM for sandbox communication
+    "requests>=2.28.0",        # CAPE API + HTTP
+]
+unpacking = [
+    "frida>=16.0.0",           # Dynamic instrumentation
+    "frida-tools>=12.0.0",     # Frida CLI helpers
+    "lief>=0.14.0",            # PE/ELF manipulation (IAT rebuild)
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+
 [project.scripts]
 devops-driver = "src.main:main"
 
