@@ -117,6 +117,25 @@ def main(argv: list[str] | None = None) -> int:
     # --- check-env subcommand (dynamic analysis environment) ---
     ce = subparsers.add_parser("check-env", help="Check dynamic analysis environment (QEMU, WinDbg, KDNET)")
 
+    # --- lab-runner subcommand (Phase 0-3 for packed/obfuscated samples) ---
+    lr = subparsers.add_parser("lab", help="Lab sample analysis runner (full pipeline for packed samples)")
+    lr.add_argument("target", help="Path to sample or directory")
+    lr.add_argument("action", nargs="?", default="analyze",
+                    choices=["analyze", "scan", "classify", "batch"],
+                    help="Action: analyze (full pipeline), scan (Phase 1), classify (packer only), batch (directory)")
+    lr.add_argument("--workspace", "-w", default="lab_workspace", help="Output workspace")
+    lr.add_argument("--backend", default="capstone", choices=["capstone", "ghidra"])
+    lr.add_argument("--cape", action="store_true", help="Use CAPE sandbox for unpacking")
+    lr.add_argument("--cape-url", default="http://localhost:8090", help="CAPE API URL")
+    lr.add_argument("--dynamic-unpack", action="store_true", help="Enable dynamic unpacking (QEMU + Frida)")
+    lr.add_argument("--evasion-level", type=int, default=0, choices=[0, 1, 2, 3],
+                    help="Anti-evasion level (0=off, 1=basic, 2=medium, 3=aggressive)")
+    lr.add_argument("--min-score", type=float, default=0.0, help="Minimum risk score to report")
+    lr.add_argument("--no-preprocessing", action="store_true", help="Skip Phase 0")
+    lr.add_argument("--max-samples", type=int, default=0, help="Max samples for batch mode (0=all)")
+    lr.add_argument("--format", nargs="+", default=["json", "markdown"])
+    lr.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
+
     # --- reverse subcommand (AI-powered reverse engineering, no driver scoring) ---
     rv = subparsers.add_parser("reverse", help="AI-powered reverse engineering of any PE file (no BYOVD scoring)")
     rv.add_argument("target", help="Path to PE file (.exe, .dll, .sys, or directory)")
@@ -149,6 +168,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_validate(args)
     elif args.command == "correlate":
         return _run_correlate(args)
+    elif args.command == "lab":
+        return _run_lab(args)
     elif args.command == "check-env":
         return _run_check_env(args)
 
@@ -813,6 +834,170 @@ def _run_correlate(args: argparse.Namespace) -> int:
         print(f"[correlate] JSON report written to {out_json}")
 
     return 0
+
+
+def _run_lab(args: argparse.Namespace) -> int:
+    """Lab sample analysis runner."""
+    target = Path(args.target)
+    if not target.exists():
+        print(f"[error] Target not found: {target}", file=sys.stderr)
+        return 1
+
+    action = args.action
+
+    if action == "classify":
+        from src.analysis.preprocessing.pipeline import _classify_packer
+
+        print(f"\n--- Packer Classification ---")
+        print(f"  Target: {target}")
+
+        info = _classify_packer(target)
+
+        print(f"\n  Results:")
+        print(f"    Packed: {info.is_packed}")
+        if info.name:
+            print(f"    Packer: {info.name}")
+        print(f"    Confidence: {info.confidence:.2f}")
+        print(f"    Max entropy: {info.entropy:.2f}")
+
+        if info.section_entropies:
+            print(f"\n  Section entropies:")
+            for name, entropy in info.section_entropies.items():
+                bar = "█" * int(entropy * 2)
+                print(f"    {name:12s}: {entropy:.2f} {bar}")
+
+        if args.verbose and info.reasons:
+            print(f"\n  Detection reasons:")
+            for reason in info.reasons:
+                print(f"    - {reason}")
+
+        return 0
+
+    elif action == "scan":
+        from src.config import PipelineConfig
+        from src.pipeline import run_phase1_scan
+
+        print(f"\n--- Quick Scan (Phase 1 only) ---")
+        print(f"  Target: {target}")
+
+        config = PipelineConfig(
+            target=target,
+            workspace=Path(args.workspace),
+            ds_backend=args.backend,
+            risk_threshold=args.min_score,
+            max_deep_targets=0,
+            report_formats=args.format,
+        )
+        config.resolve_paths()
+
+        scan_result = run_phase1_scan(config)
+
+        if scan_result.top_samples:
+            print(f"\n  Findings:")
+            for s in scan_result.top_samples:
+                if s["risk_score"] >= args.min_score:
+                    print(f"    {s['name']}: {s['risk_score']:.1f}/10 ({s['finding_count']} findings)")
+        else:
+            print(f"\n  No findings above threshold ({args.min_score})")
+
+        return 0
+
+    elif action in ("analyze", "batch"):
+        from src.config import PipelineConfig
+        from src.pipeline import run_phase1_scan, generate_unified_report
+        from src.analysis.preprocessing import run_preprocessing
+        from src.analysis.preprocessing.pipeline import PreprocessingConfig
+
+        is_batch = action == "batch" and target.is_dir()
+
+        if is_batch:
+            # Collect samples
+            samples = []
+            for ext in ("*.sys", "*.exe", "*.dll", "*.drv"):
+                samples.extend(target.rglob(ext))
+            if not samples:
+                print(f"[error] No samples found in: {target}")
+                return 1
+            if args.max_samples > 0:
+                samples = samples[:args.max_samples]
+
+            print(f"\n{'=' * 60}")
+            print(f"  Lab Runner — Batch Analysis")
+            print(f"  Samples: {len(samples)}")
+            print(f"{'=' * 60}")
+
+            for i, sample in enumerate(samples, 1):
+                print(f"\n[{i}/{len(samples)}] {sample.name}")
+                _analyze_single_sample(
+                    sample, args, PreprocessingConfig, PipelineConfig,
+                    run_preprocessing, run_phase1_scan, generate_unified_report,
+                )
+        else:
+            print(f"\n{'=' * 60}")
+            print(f"  Lab Runner — Full Analysis")
+            print(f"  Target: {target}")
+            print(f"{'=' * 60}")
+            _analyze_single_sample(
+                target, args, PreprocessingConfig, PipelineConfig,
+                run_preprocessing, run_phase1_scan, generate_unified_report,
+            )
+
+        return 0
+
+    return 0
+
+
+def _analyze_single_sample(
+    target: Path,
+    args: argparse.Namespace,
+    PreprocessingConfig: type,
+    PipelineConfig: type,
+    run_preprocessing: Any,
+    run_phase1_scan: Any,
+    generate_unified_report: Any,
+) -> None:
+    """Analyze a single sample through Phase 0-3."""
+    workspace = Path(args.workspace) / target.stem
+    workspace.mkdir(parents=True, exist_ok=True)
+
+    current_target = target
+
+    # Phase 0
+    if not args.no_preprocessing:
+        pp_config = PreprocessingConfig(
+            enabled=True,
+            allow_static_unpack=True,
+            allow_dynamic_unpack=args.dynamic_unpack,
+            use_cape=args.cape,
+            cape_api_url=args.cape_url,
+        )
+        pp_result = run_preprocessing(str(target), pp_config)
+
+        if pp_result.was_unpacked:
+            print(f"  Phase 0: Unpacked → {pp_result.cleaned_target}")
+            current_target = Path(pp_result.cleaned_target)
+        elif pp_result.packer_info and pp_result.packer_info.is_packed:
+            print(f"  Phase 0: Packer detected: {pp_result.packer_info.name}")
+        else:
+            print(f"  Phase 0: No packing detected")
+
+    # Phase 1
+    config = PipelineConfig(
+        target=current_target,
+        workspace=workspace,
+        ds_backend=args.backend,
+        risk_threshold=0.0,
+        max_deep_targets=0,
+        report_formats=args.format,
+    )
+    config.resolve_paths()
+
+    scan_result = run_phase1_scan(config)
+
+    # Print top findings
+    for s in scan_result.top_samples[:5]:
+        if s["risk_score"] >= args.min_score:
+            print(f"  {s['name']}: {s['risk_score']:.1f}/10 ({s['finding_count']} findings)")
 
 
 def _run_check_env(args: argparse.Namespace) -> int:
