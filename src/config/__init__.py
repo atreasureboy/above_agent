@@ -26,6 +26,20 @@ class PipelineConfig:
     # Output workspace for all generated artifacts
     workspace: Path = Path("workspace")
 
+    # --- Phase 0: Preprocessing (unpacking / deobfuscation) ---
+    enable_preprocessing: bool = True
+    allow_static_unpack: bool = True
+    allow_dynamic_unpack: bool = False        # Requires QEMU + Frida
+    upx_binary: str = ""                      # Auto-detect if empty
+    dynamic_unpack_timeout: int = 120
+    qemu_path: str = ""                       # Path to qemu-system-x86_64
+    vm_image: str = ""                        # Path to QEMU disk image
+    sandbox_snapshot: str = "clean"
+    frida_server_port: int = 27042
+    cape_api_url: str = "http://localhost:8090"
+    use_cape: bool = False
+    evasion_level: int = 0                    # 0=off, 1=basic, 2=medium, 3=aggressive
+
     # --- Phase 1: DriverScope ---
     risk_threshold: float = 5.0       # Min risk score to qualify for Phase 2
     max_deep_targets: int = 5         # Max drivers for OVOIDA (0 = unlimited)

@@ -32,6 +32,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--threshold", "-t", type=float, default=5.0, help="Risk score threshold for OVOIDA (default: 5.0)")
     p.add_argument("--max-deep", type=int, default=5, help="Max drivers for OVOIDA (default: 5, 0=unlimited)")
     p.add_argument("--no-ovoida", action="store_true", help="Skip Phase 2 (OVOIDA)")
+    p.add_argument("--no-preprocessing", action="store_true", help="Skip Phase 0 (unpacking/deobfuscation)")
     p.add_argument("--format", nargs="+", default=["json", "markdown"], help="Report formats")
     p.add_argument("--backend", default="capstone", help="Disassembly backend")
     p.add_argument("--timeout", type=int, default=30, help="DriverScope timeout per driver (s)")
@@ -154,7 +155,7 @@ def main(argv: list[str] | None = None) -> int:
     return 1
 
 
-def _run_pipeline(args: argparse.Namespace) -> int:
+def _run_pipeline(args: PipelineConfig) -> int:
     """Run the unified 3-phase pipeline."""
     target = Path(args.target)
     if not target.exists():
@@ -197,6 +198,48 @@ def _run_pipeline(args: argparse.Namespace) -> int:
     config.resolve_paths()
 
     total_start = time.time()
+
+    # Phase 0: Preprocessing (unpacking / deobfuscation)
+    if getattr(args, "no_preprocessing", False):
+        print("\n[pipeline] Preprocessing disabled (--no-preprocessing). Skipping Phase 0.")
+    else:
+        try:
+            from src.analysis.preprocessing import run_preprocessing
+            from src.analysis.preprocessing.pipeline import PreprocessingConfig
+
+            pp_config = PreprocessingConfig(
+                enabled=True,
+                allow_static_unpack=config.allow_static_unpack,
+                allow_dynamic_unpack=config.allow_dynamic_unpack,
+                upx_binary=config.upx_binary,
+                dynamic_unpack_timeout=config.dynamic_unpack_timeout,
+                qemu_path=config.qemu_path,
+                vm_image=config.vm_image,
+                sandbox_snapshot=config.sandbox_snapshot,
+                frida_server_port=config.frida_server_port,
+                cape_api_url=config.cape_api_url,
+                use_cape=config.use_cape,
+            )
+
+            pp_result = run_preprocessing(str(config.target), pp_config)
+
+            if pp_result.was_unpacked:
+                print(f"\n[pipeline] Phase 0: Unpacked to {pp_result.cleaned_target}")
+                # Update target to unpacked path
+                config.target = Path(pp_result.cleaned_target)
+            elif pp_result.packer_info and pp_result.packer_info.is_packed:
+                packer = pp_result.packer_info.name
+                print(f"\n[pipeline] Phase 0: Detected packer '{packer}' but could not unpack.")
+                print(f"  Reasons: {'; '.join(pp_result.packer_info.reasons[:3])}")
+                if pp_result.warnings:
+                    for w in pp_result.warnings[:3]:
+                        print(f"  Warning: {w}")
+            else:
+                print(f"\n[pipeline] Phase 0: No packing detected — proceeding with original binary")
+
+        except Exception as e:
+            print(f"\n[pipeline] Phase 0 error: {e}")
+            print("  Continuing with original binary...")
 
     # Phase 1: DriverScope Batch Scan
     scan_result = run_phase1_scan(config)
