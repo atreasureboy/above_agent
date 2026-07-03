@@ -181,6 +181,9 @@ def generate_html(report: Report) -> str:
     if not samples_html:
         samples_html = '<div class="card"><p style="color:#888;">No findings detected.</p></div>'
 
+    # Preprocessing section (Phase 0 results)
+    pp_html = _preprocessing_section(report.preprocessing_info)
+
     body = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>DriverScope Report</title>
 <style>{_CSS}</style></head><body>
@@ -188,6 +191,7 @@ def generate_html(report: Report) -> str:
   <h1>DriverScope Report</h1>
   <p class="subtitle">{html_mod.escape(_sanitize(report.tool_version))} | {html_mod.escape(_sanitize(report.timestamp))} | Backend: {html_mod.escape(_sanitize(report.backend))}</p>
   <div class="summary">{cards_html}</div>
+  {pp_html}
   <div class="search-bar">
     <input type="text" id="search-input" placeholder="Search by driver name, API, finding description…" oninput="doSearch()">
     <span class="result-count" id="search-count"></span>
@@ -218,6 +222,70 @@ function doSearch() {{
 </script>
 </body></html>"""
     return body
+
+
+def _preprocessing_section(pp_info: dict) -> str:
+    """Generate HTML section for Phase 0 preprocessing results."""
+    if not pp_info:
+        return ""
+
+    packer = pp_info.get("packer_name", "")
+    was_unpacked = pp_info.get("was_unpacked", False)
+    strategy = pp_info.get("strategy", "")
+    deobfuscation = pp_info.get("deobfuscation_applied", [])
+    anti_evasion = pp_info.get("anti_evasion_patches", [])
+    unpacked_path = pp_info.get("unpacked_path", "")
+    elapsed = pp_info.get("elapsed", 0.0)
+
+    if not packer and not was_unpacked and not deobfuscation:
+        return ""
+
+    rows = []
+
+    if packer:
+        rows.append(f'<tr><td><strong>🔒 Packer/Protector</strong></td>'
+                    f'<td><span class="tag tag-high">{html_mod.escape(packer)}</span></td></tr>')
+
+    if was_unpacked:
+        rows.append(f'<tr><td><strong>📦 Unpacked</strong></td>'
+                    f'<td style="color:#00e676;">✓ Yes</td></tr>')
+        if unpacked_path:
+            rows.append(f'<tr><td><strong>📁 Unpacked Path</strong></td>'
+                        f'<td><code>{html_mod.escape(unpacked_path)}</code></td></tr>')
+    elif packer:
+        rows.append(f'<tr><td><strong>📦 Unpacked</strong></td>'
+                    f'<td style="color:#ff5252;">✗ Failed</td></tr>')
+
+    if strategy:
+        rows.append(f'<tr><td><strong>🎯 Strategy</strong></td>'
+                    f'<td>{html_mod.escape(strategy)}</td></tr>')
+
+    if deobfuscation:
+        deobf_text = ", ".join(html_mod.escape(str(d)) for d in deobfuscation)
+        rows.append(f'<tr><td><strong>🧩 Deobfuscation</strong></td>'
+                    f'<td>{deobf_text}</td></tr>')
+
+    if anti_evasion:
+        evasion_text = ", ".join(html_mod.escape(str(e)) for e in anti_evasion)
+        rows.append(f'<tr><td><strong>🛡️ Anti-Evasion</strong></td>'
+                    f'<td>{evasion_text}</td></tr>')
+
+    if elapsed > 0:
+        rows.append(f'<tr><td><strong>⏱️ Elapsed</strong></td>'
+                    f'<td>{elapsed:.1f}s</td></tr>')
+
+    if not rows:
+        return ""
+
+    table_rows = "\n".join(rows)
+    return f"""
+  <div class="card" style="border-left:4px solid #9c27b0;">
+    <h3 style="color:#ce93d8;">🔧 Phase 0: Preprocessing</h3>
+    <table style="width:100%;border-collapse:collapse;">
+      {table_rows}
+    </table>
+  </div>
+"""
 
 
 def _summary_cards(total, analyzed, critical, high, medium, avg_score, total_findings, finding_by_severity=None):

@@ -475,6 +475,8 @@ class Report:
     total_analyzed: int = 0
     total_findings: int = 0
     summary: dict[str, Any] = field(default_factory=dict)
+    # Phase 0: Preprocessing metadata
+    preprocessing_info: dict[str, Any] = field(default_factory=dict)
 
     def top_n(self, n: int = 10) -> list[Sample]:
         """Return top-N samples by risk score."""
